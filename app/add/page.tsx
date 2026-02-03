@@ -1,0 +1,283 @@
+'use client';
+
+import { useState } from 'react';
+import { collection, addDoc } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { db, storage, auth } from '@/lib/firebase';
+import { useAuthState } from 'react-firebase-hooks/auth';
+import { useRouter } from 'next/navigation';
+import BottomNav from '@/components/BottomNav';
+
+export default function AddParking() {
+  const [user] = useAuthState(auth);
+  const router = useRouter();
+  const [loading, setLoading] = useState(false);
+  const [formData, setFormData] = useState({
+    name: '',
+    address: '',
+    lat: '',
+    lng: '',
+    type: 'free' as 'free' | 'paid',
+    fee: '',
+    timeLimit: '',
+    description: '',
+  });
+  const [images, setImages] = useState<FileList | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!user) {
+      alert('로그인이 필요합니다');
+      return;
+    }
+
+    if (!formData.lat || !formData.lng) {
+      alert('위도와 경도를 입력해주세요');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      // 이미지 업로드
+      const imageUrls: string[] = [];
+      if (images) {
+        for (let i = 0; i < images.length; i++) {
+          const imageRef = ref(storage, `parkings/${Date.now()}_${i}`);
+          await uploadBytes(imageRef, images[i]);
+          const url = await getDownloadURL(imageRef);
+          imageUrls.push(url);
+        }
+      }
+
+      // Firestore에 저장
+      await addDoc(collection(db, 'parkings'), {
+        name: formData.name,
+        location: {
+          lat: parseFloat(formData.lat),
+          lng: parseFloat(formData.lng),
+          address: formData.address,
+        },
+        type: formData.type,
+        fee: formData.type === 'paid' ? parseFloat(formData.fee) : null,
+        timeLimit: formData.timeLimit || null,
+        description: formData.description,
+        images: imageUrls,
+        createdBy: user.uid,
+        createdAt: new Date(),
+        verifications: 0,
+        rating: 0,
+      });
+
+      alert('등록 완료!');
+      router.push('/');
+    } catch (error) {
+      console.error(error);
+      alert('등록 실패: ' + error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 현재 위치 가져오기
+  const getCurrentLocation = () => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setFormData({
+            ...formData,
+            lat: position.coords.latitude.toString(),
+            lng: position.coords.longitude.toString(),
+          });
+          alert('현재 위치를 불러왔습니다!');
+        },
+        (error) => {
+          alert('위치 정보를 가져올 수 없습니다');
+        }
+      );
+    }
+  };
+
+  if (!user) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center">
+          <p className="text-xl mb-4">로그인이 필요합니다</p>
+          <button
+            onClick={() => router.push('/')}
+            className="bg-blue-500 text-white px-6 py-2 rounded-lg"
+          >
+            홈으로 가기
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50 pb-20">
+      <div className="max-w-2xl mx-auto p-6">
+        <h1 className="text-3xl font-bold mb-6">주차장 등록</h1>
+
+        <form onSubmit={handleSubmit} className="space-y-4 bg-white p-6 rounded-lg shadow">
+          {/* 주차장 이름 */}
+          <div>
+            <label className="block mb-2 font-semibold">주차장 이름 *</label>
+            <input
+              type="text"
+              required
+              placeholder="예: 강남역 공영주차장"
+              className="w-full border border-gray-300 p-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+            />
+          </div>
+
+          {/* 주소 */}
+          <div>
+            <label className="block mb-2 font-semibold">주소 *</label>
+            <input
+              type="text"
+              required
+              placeholder="예: 서울시 강남구 역삼동 123-45"
+              className="w-full border border-gray-300 p-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              value={formData.address}
+              onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+            />
+          </div>
+
+          {/* 위도/경도 */}
+          <div>
+            <label className="block mb-2 font-semibold">위치 정보 *</label>
+            <button
+              type="button"
+              onClick={getCurrentLocation}
+              className="mb-2 bg-green-500 text-white px-4 py-2 rounded-lg w-full"
+            >
+              📍 현재 위치 가져오기
+            </button>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <input
+                  type="number"
+                  step="any"
+                  required
+                  placeholder="위도 (예: 37.4979)"
+                  className="w-full border border-gray-300 p-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  value={formData.lat}
+                  onChange={(e) => setFormData({ ...formData, lat: e.target.value })}
+                />
+              </div>
+              <div>
+                <input
+                  type="number"
+                  step="any"
+                  required
+                  placeholder="경도 (예: 127.0276)"
+                  className="w-full border border-gray-300 p-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  value={formData.lng}
+                  onChange={(e) => setFormData({ ...formData, lng: e.target.value })}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* 유형 */}
+          <div>
+            <label className="block mb-2 font-semibold">유형 *</label>
+            <div className="flex gap-4">
+              <label className="flex items-center">
+                <input
+                  type="radio"
+                  value="free"
+                  checked={formData.type === 'free'}
+                  onChange={(e) =>
+                    setFormData({ ...formData, type: e.target.value as 'free' | 'paid' })
+                  }
+                  className="mr-2"
+                />
+                무료
+              </label>
+              <label className="flex items-center">
+                <input
+                  type="radio"
+                  value="paid"
+                  checked={formData.type === 'paid'}
+                  onChange={(e) =>
+                    setFormData({ ...formData, type: e.target.value as 'free' | 'paid' })
+                  }
+                  className="mr-2"
+                />
+                유료
+              </label>
+            </div>
+          </div>
+
+          {/* 요금 (유료일 경우) */}
+          {formData.type === 'paid' && (
+            <div>
+              <label className="block mb-2 font-semibold">요금 (원/시간)</label>
+              <input
+                type="number"
+                placeholder="예: 2000"
+                className="w-full border border-gray-300 p-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                value={formData.fee}
+                onChange={(e) => setFormData({ ...formData, fee: e.target.value })}
+              />
+            </div>
+          )}
+
+          {/* 시간 제한 */}
+          <div>
+            <label className="block mb-2 font-semibold">시간 제한</label>
+            <input
+              type="text"
+              placeholder="예: 2시간, 없음"
+              className="w-full border border-gray-300 p-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              value={formData.timeLimit}
+              onChange={(e) => setFormData({ ...formData, timeLimit: e.target.value })}
+            />
+          </div>
+
+          {/* 설명 */}
+          <div>
+            <label className="block mb-2 font-semibold">설명</label>
+            <textarea
+              rows={4}
+              placeholder="예: 대형마트 뒤편 주차장. 야간에는 무료로 이용 가능합니다."
+              className="w-full border border-gray-300 p-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              value={formData.description}
+              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+            />
+          </div>
+
+          {/* 사진 */}
+          <div>
+            <label className="block mb-2 font-semibold">사진 (최대 5장)</label>
+            <input
+              type="file"
+              multiple
+              accept="image/*"
+              max={5}
+              className="w-full border border-gray-300 p-3 rounded-lg"
+              onChange={(e) => setImages(e.target.files)}
+            />
+            <p className="text-sm text-gray-500 mt-1">주차장 입구나 주변 사진을 추가해주세요</p>
+          </div>
+
+          {/* 제출 버튼 */}
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full bg-blue-500 text-white py-4 rounded-lg font-bold text-lg disabled:bg-gray-400"
+          >
+            {loading ? '등록 중...' : '등록하기'}
+          </button>
+        </form>
+      </div>
+
+      <BottomNav />
+    </div>
+  );
+}
