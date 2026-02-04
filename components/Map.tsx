@@ -1,20 +1,19 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import Script from 'next/script';
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Parking } from '@/lib/types';
 import { useRouter, useSearchParams } from 'next/navigation';
 
-export default function KakaoMap() {
+function MapContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [parkings, setParkings] = useState<Parking[]>([]);
   const [mapReady, setMapReady] = useState(false);
 
   useEffect(() => {
-    // 주차장 데이터 로드
     const loadParkings = async () => {
       try {
         const querySnapshot = await getDocs(collection(db, 'parkings'));
@@ -45,21 +44,19 @@ export default function KakaoMap() {
 
       const map = new window.kakao.maps.Map(container, options);
 
-      // URL 파라미터로 위치 이동
       const lat = searchParams.get('lat');
       const lng = searchParams.get('lng');
+      
       if (lat && lng) {
         const moveLatLon = new window.kakao.maps.LatLng(parseFloat(lat), parseFloat(lng));
         map.setCenter(moveLatLon);
         map.setLevel(3);
 
-        // 내 위치 마커
         const myMarker = new window.kakao.maps.Marker({
           position: moveLatLon,
         });
         myMarker.setMap(map);
       } else {
-        // 현재 위치
         if (navigator.geolocation) {
           navigator.geolocation.getCurrentPosition((position) => {
             const lat = position.coords.latitude;
@@ -67,7 +64,6 @@ export default function KakaoMap() {
             const locPosition = new window.kakao.maps.LatLng(lat, lng);
             map.setCenter(locPosition);
 
-            // 현재 위치 마커
             const myMarker = new window.kakao.maps.Marker({
               position: locPosition,
             });
@@ -76,7 +72,6 @@ export default function KakaoMap() {
         }
       }
 
-      // 주차장 마커
       parkings.forEach((parking) => {
         const position = new window.kakao.maps.LatLng(
           parking.location.lat,
@@ -90,12 +85,10 @@ export default function KakaoMap() {
 
         marker.setMap(map);
 
-        // 클릭 이벤트
         window.kakao.maps.event.addListener(marker, 'click', () => {
           router.push(`/detail/${parking.id}`);
         });
 
-        // 인포윈도우
         const content = `
           <div style="padding:10px;background:white;border-radius:5px;box-shadow:0 2px 5px rgba(0,0,0,0.2);">
             <strong>${parking.name}</strong><br/>
@@ -172,7 +165,6 @@ export default function KakaoMap() {
           <p className="text-sm font-bold">총 {parkings.length}개</p>
         </div>
 
-        {/* 버튼 그룹 */}
         <div className="absolute top-4 left-1/2 transform -translate-x-1/2 flex gap-2 z-10">
           <button
             onClick={() => window.location.reload()}
@@ -189,6 +181,18 @@ export default function KakaoMap() {
         </div>
       </div>
     </>
+  );
+}
+
+export default function KakaoMap() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-lg">로딩 중...</div>
+      </div>
+    }>
+      <MapContent />
+    </Suspense>
   );
 }
 
