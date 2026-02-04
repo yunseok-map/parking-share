@@ -101,12 +101,12 @@ export default function AddParking() {
 
   if (!user) {
     return (
-      <div className="flex items-center justify-center h-screen">
+      <div className="flex items-center justify-center h-screen px-4">
         <div className="text-center">
-          <p className="text-xl mb-4">로그인이 필요합니다</p>
+          <p className="text-lg sm:text-xl mb-4">로그인이 필요합니다</p>
           <button
             onClick={() => router.push('/')}
-            className="bg-blue-500 text-white px-6 py-2 rounded-lg"
+            className="bg-blue-500 text-white px-6 py-2 rounded-lg text-sm sm:text-base"
           >
             홈으로 가기
           </button>
@@ -117,18 +117,18 @@ export default function AddParking() {
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
-      <div className="max-w-2xl mx-auto p-6">
-        <h1 className="text-3xl font-bold mb-6">주차장 등록</h1>
+      <div className="max-w-2xl mx-auto p-4 sm:p-6">
+        <h1 className="text-2xl sm:text-3xl font-bold mb-4 sm:mb-6">주차장 등록</h1>
 
-        <form onSubmit={handleSubmit} className="space-y-4 bg-white p-6 rounded-lg shadow">
+        <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4 bg-white p-4 sm:p-6 rounded-lg shadow">
           {/* 주차장 이름 */}
           <div>
-            <label className="block mb-2 font-semibold">주차장 이름 *</label>
+            <label className="block mb-2 font-semibold text-sm sm:text-base">주차장 이름 *</label>
             <input
               type="text"
               required
               placeholder="예: 강남역 공영주차장"
-              className="w-full border border-gray-300 p-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full border border-gray-300 p-2 sm:p-3 rounded-lg text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
             />
@@ -136,12 +136,12 @@ export default function AddParking() {
 
           {/* 주소 */}
           <div>
-            <label className="block mb-2 font-semibold">주소 *</label>
+            <label className="block mb-2 font-semibold text-sm sm:text-base">주소 *</label>
             <input
               type="text"
               required
               placeholder="예: 서울시 강남구 역삼동 123-45"
-              className="w-full border border-gray-300 p-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full border border-gray-300 p-2 sm:p-3 rounded-lg text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
               value={formData.address}
               onChange={(e) => setFormData({ ...formData, address: e.target.value })}
             />
@@ -149,22 +149,22 @@ export default function AddParking() {
 
           {/* 위도/경도 */}
           <div>
-            <label className="block mb-2 font-semibold">위치 정보 *</label>
+            <label className="block mb-2 font-semibold text-sm sm:text-base">위치 정보 *</label>
             <button
               type="button"
               onClick={getCurrentLocation}
-              className="mb-2 bg-green-500 text-white px-4 py-2 rounded-lg w-full"
+              className="mb-2 bg-green-500 text-white px-3 sm:px-4 py-2 rounded-lg w-full text-sm sm:text-base font-medium"
             >
               📍 현재 위치 가져오기
             </button>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-2 sm:gap-4">
               <div>
                 <input
                   type="number"
                   step="any"
                   required
-                  placeholder="위도 (예: 37.4979)"
-                  className="w-full border border-gray-300 p-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="위도"
+                  className="w-full border border-gray-300 p-2 sm:p-3 rounded-lg text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
                   value={formData.lat}
                   onChange={(e) => setFormData({ ...formData, lat: e.target.value })}
                 />
@@ -174,8 +174,8 @@ export default function AddParking() {
                   type="number"
                   step="any"
                   required
-                  placeholder="경도 (예: 127.0276)"
-                  className="w-full border border-gray-300 p-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="경도"
+                  className="w-full border border-gray-300 p-2 sm:p-3 rounded-lg text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
                   value={formData.lng}
                   onChange={(e) => setFormData({ ...formData, lng: e.target.value })}
                 />
@@ -185,9 +185,9 @@ export default function AddParking() {
 
           {/* 유형 */}
           <div>
-            <label className="block mb-2 font-semibold">유형 *</label>
-            <div className="flex gap-4">
-              <label className="flex items-center">
+            <label className="block mb-2 font-semibold text-sm sm:text-base">유형 *</label>
+            <div className="flex gap-3 sm:gap-4">
+              <label className="flex items-center text-sm sm:text-base">
                 <input
                   type="radio"
                   value="free"
@@ -195,11 +195,11 @@ export default function AddParking() {
                   onChange={(e) =>
                     setFormData({ ...formData, type: e.target.value as 'free' | 'paid' })
                   }
-                  className="mr-2"
+                  className="mr-2 w-4 h-4"
                 />
                 무료
               </label>
-              <label className="flex items-center">
+              <label className="flex items-center text-sm sm:text-base">
                 <input
                   type="radio"
                   value="paid"
@@ -207,7 +207,7 @@ export default function AddParking() {
                   onChange={(e) =>
                     setFormData({ ...formData, type: e.target.value as 'free' | 'paid' })
                   }
-                  className="mr-2"
+                  className="mr-2 w-4 h-4"
                 />
                 유료
               </label>
@@ -217,11 +217,11 @@ export default function AddParking() {
           {/* 요금 (유료일 경우) */}
           {formData.type === 'paid' && (
             <div>
-              <label className="block mb-2 font-semibold">요금 (원/시간)</label>
+              <label className="block mb-2 font-semibold text-sm sm:text-base">요금 (원/시간)</label>
               <input
                 type="number"
                 placeholder="예: 2000"
-                className="w-full border border-gray-300 p-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full border border-gray-300 p-2 sm:p-3 rounded-lg text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
                 value={formData.fee}
                 onChange={(e) => setFormData({ ...formData, fee: e.target.value })}
               />
@@ -230,11 +230,11 @@ export default function AddParking() {
 
           {/* 시간 제한 */}
           <div>
-            <label className="block mb-2 font-semibold">시간 제한</label>
+            <label className="block mb-2 font-semibold text-sm sm:text-base">시간 제한</label>
             <input
               type="text"
               placeholder="예: 2시간, 없음"
-              className="w-full border border-gray-300 p-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full border border-gray-300 p-2 sm:p-3 rounded-lg text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
               value={formData.timeLimit}
               onChange={(e) => setFormData({ ...formData, timeLimit: e.target.value })}
             />
@@ -242,11 +242,11 @@ export default function AddParking() {
 
           {/* 설명 */}
           <div>
-            <label className="block mb-2 font-semibold">설명</label>
+            <label className="block mb-2 font-semibold text-sm sm:text-base">설명</label>
             <textarea
-              rows={4}
+              rows={3}
               placeholder="예: 대형마트 뒤편 주차장. 야간에는 무료로 이용 가능합니다."
-              className="w-full border border-gray-300 p-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full border border-gray-300 p-2 sm:p-3 rounded-lg text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
             />
@@ -254,23 +254,22 @@ export default function AddParking() {
 
           {/* 사진 */}
           <div>
-            <label className="block mb-2 font-semibold">사진 (최대 5장)</label>
+            <label className="block mb-2 font-semibold text-sm sm:text-base">사진 (최대 5장)</label>
             <input
               type="file"
               multiple
               accept="image/*"
-              max={5}
-              className="w-full border border-gray-300 p-3 rounded-lg"
+              className="w-full border border-gray-300 p-2 rounded-lg text-xs sm:text-sm"
               onChange={(e) => setImages(e.target.files)}
             />
-            <p className="text-sm text-gray-500 mt-1">주차장 입구나 주변 사진을 추가해주세요</p>
+            <p className="text-xs sm:text-sm text-gray-500 mt-1">주차장 입구나 주변 사진을 추가해주세요</p>
           </div>
 
           {/* 제출 버튼 */}
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-blue-500 text-white py-4 rounded-lg font-bold text-lg disabled:bg-gray-400"
+            className="w-full bg-blue-500 text-white py-3 sm:py-4 rounded-lg font-bold text-base sm:text-lg disabled:bg-gray-400"
           >
             {loading ? '등록 중...' : '등록하기'}
           </button>
