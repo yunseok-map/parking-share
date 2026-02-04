@@ -29,23 +29,92 @@ export default function AddParking() {
   const [images, setImages] = useState<FileList | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  e.preventDefault();
 
-    if (!user) {
-      alert('로그인이 필요합니다');
+  if (!user) {
+    alert('로그인이 필요합니다');
+    return;
+  }
+
+  if (!formData.lat || !formData.lng) {
+    alert('위도와 경도를 입력해주세요');
+    return;
+  }
+
+  if (!images || images.length === 0) {
+    alert('주차장 사진을 최소 1장 이상 추가해주세요');
+    return;
+  }
+
+  // ===== 새로 추가: 카테고리별 검증 =====
+  if (formData.category === 'hidden') {
+    if (!formData.tip || formData.tip.trim().length < 10) {
+      alert('숨은꿀팁은 "꿀팁" 정보를 10자 이상 입력해주세요!\n예: "주말 오전 11시 이전만 무료, 단속 없음"');
       return;
     }
-
-    if (!formData.lat || !formData.lng) {
-      alert('위도와 경도를 입력해주세요');
+    if (images.length < 2) {
+      alert('숨은꿀팁은 사진을 최소 2장 이상 추가해주세요!');
       return;
     }
-
-    if (!images || images.length === 0) {
-      alert('주차장 사진을 최소 1장 이상 추가해주세요');
+    if (!formData.description || formData.description.trim().length < 20) {
+      alert('숨은꿀팁은 상세 설명을 20자 이상 입력해주세요!');
       return;
     }
+  }
 
+  if (formData.category === 'tip') {
+    if (!formData.tip || formData.tip.trim().length < 10) {
+      alert('조건부무료는 "꿀팁"에 무료 조건을 명확히 입력해주세요!\n예: "영수증 제시 시 2시간 무료"');
+      return;
+    }
+  }
+  // ===== 여기까지 추가 =====
+
+  setLoading(true);
+
+  try {
+    const imageUrls: string[] = [];
+    for (let i = 0; i < Math.min(images.length, 5); i++) {
+      const imageRef = ref(storage, `parkings/${Date.now()}_${i}`);
+      await uploadBytes(imageRef, images[i]);
+      const url = await getDownloadURL(imageRef);
+      imageUrls.push(url);
+    }
+
+    await addDoc(collection(db, 'parkings'), {
+      name: formData.name,
+      location: {
+        lat: parseFloat(formData.lat),
+        lng: parseFloat(formData.lng),
+        address: formData.address,
+      },
+      type: formData.type,
+      category: formData.category,
+      fee: formData.type === 'paid' ? parseFloat(formData.fee) : null,
+      timeLimit: formData.timeLimit || null,
+      description: formData.description,
+      tip: formData.tip || null,
+      caution: formData.caution || null,
+      bestTime: formData.bestTime || null,
+      images: imageUrls,
+      createdBy: user.uid,
+      createdAt: new Date(),
+      verifications: 0,
+      rating: 0,
+      averageRating: 0,
+      reviewCount: 0,
+      status: 'approved', // 일단 바로 승인 (나중에 'pending'으로 변경 가능)
+    });
+
+    alert('등록 완료!');
+    router.push('/');
+  } catch (error) {
+    console.error(error);
+    alert('등록 실패: ' + error);
+  } finally {
+    setLoading(false);
+  }
+};
     setLoading(true);
 
     try {
