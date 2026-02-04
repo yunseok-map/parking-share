@@ -12,6 +12,8 @@ function MapContent() {
   const searchParams = useSearchParams();
   const [parkings, setParkings] = useState<Parking[]>([]);
   const [mapReady, setMapReady] = useState(false);
+  const [dataLoaded, setDataLoaded] = useState(false);
+  const [mapInitialized, setMapInitialized] = useState(false);
 
   useEffect(() => {
     const loadParkings = async () => {
@@ -22,8 +24,10 @@ function MapContent() {
           ...doc.data(),
         })) as Parking[];
         setParkings(data);
+        setDataLoaded(true);
       } catch (error) {
         console.error('데이터 로드 실패:', error);
+        setDataLoaded(true); // 에러 시에도 로딩 완료 처리
       }
     };
 
@@ -31,8 +35,7 @@ function MapContent() {
   }, []);
 
   useEffect(() => {
-    // 지도와 주차장 데이터 모두 준비되면 초기화
-    if (!mapReady || parkings.length === 0) return;
+    if (!mapReady || mapInitialized) return;
 
     const initMap = () => {
       const container = document.getElementById('map');
@@ -77,48 +80,53 @@ function MapContent() {
         }
       }
 
-      parkings.forEach((parking) => {
-        const position = new window.kakao.maps.LatLng(
-          parking.location.lat,
-          parking.location.lng
-        );
+      // 주차장 마커 추가
+      if (parkings.length > 0) {
+        parkings.forEach((parking) => {
+          const position = new window.kakao.maps.LatLng(
+            parking.location.lat,
+            parking.location.lng
+          );
 
-        const marker = new window.kakao.maps.Marker({
-          position: position,
-          title: parking.name,
+          const marker = new window.kakao.maps.Marker({
+            position: position,
+            title: parking.name,
+          });
+
+          marker.setMap(map);
+
+          window.kakao.maps.event.addListener(marker, 'click', () => {
+            router.push(`/detail/${parking.id}`);
+          });
+
+          const content = `
+            <div style="padding:10px;background:white;border-radius:5px;box-shadow:0 2px 5px rgba(0,0,0,0.2);">
+              <strong>${parking.name}</strong><br/>
+              <span style="color:${parking.type === 'free' ? 'blue' : 'red'}">
+                ${parking.type === 'free' ? '무료' : '유료'}
+              </span>
+            </div>
+          `;
+
+          const infowindow = new window.kakao.maps.InfoWindow({
+            content: content,
+          });
+
+          window.kakao.maps.event.addListener(marker, 'mouseover', () => {
+            infowindow.open(map, marker);
+          });
+
+          window.kakao.maps.event.addListener(marker, 'mouseout', () => {
+            infowindow.close();
+          });
         });
+      }
 
-        marker.setMap(map);
-
-        window.kakao.maps.event.addListener(marker, 'click', () => {
-          router.push(`/detail/${parking.id}`);
-        });
-
-        const content = `
-          <div style="padding:10px;background:white;border-radius:5px;box-shadow:0 2px 5px rgba(0,0,0,0.2);">
-            <strong>${parking.name}</strong><br/>
-            <span style="color:${parking.type === 'free' ? 'blue' : 'red'}">
-              ${parking.type === 'free' ? '무료' : '유료'}
-            </span>
-          </div>
-        `;
-
-        const infowindow = new window.kakao.maps.InfoWindow({
-          content: content,
-        });
-
-        window.kakao.maps.event.addListener(marker, 'mouseover', () => {
-          infowindow.open(map, marker);
-        });
-
-        window.kakao.maps.event.addListener(marker, 'mouseout', () => {
-          infowindow.close();
-        });
-      });
+      setMapInitialized(true);
     };
 
     initMap();
-  }, [mapReady, parkings, router, searchParams]);
+  }, [mapReady, parkings, router, searchParams, mapInitialized]);
 
   const handleMapLoad = () => {
     if (window.kakao && window.kakao.maps) {
@@ -156,8 +164,8 @@ function MapContent() {
       <div className="relative w-full h-screen">
         <div id="map" className="w-full h-full bg-gray-100" />
 
-        {(!mapReady || parkings.length === 0) && (
-          <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
+        {!mapReady && (
+          <div className="absolute inset-0 flex items-center justify-center bg-gray-100 z-20">
             <div className="text-center">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
               <div className="text-lg font-semibold">지도 불러오는 중...</div>
@@ -167,7 +175,9 @@ function MapContent() {
         )}
 
         <div className="absolute top-4 left-4 bg-white px-4 py-2 rounded-lg shadow-lg z-10">
-          <p className="text-sm font-bold">총 {parkings.length}개</p>
+          <p className="text-sm font-bold">
+            총 {dataLoaded ? parkings.length : '...'개}
+          </p>
         </div>
 
         <div className="absolute top-4 left-1/2 transform -translate-x-1/2 flex gap-2 z-10">
