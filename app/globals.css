@@ -44,3 +44,9 @@ body {
 button, a {
   -webkit-tap-highlight-color: transparent;
 }
+
+/* 카카오맵 타일 중복 방지 */
+#map .kakao-tile {
+  image-rendering: crisp-edges;
+  image-rendering: -webkit-optimize-contrast;
+}
