@@ -176,8 +176,8 @@ function MapContent() {
 
         <div className="absolute top-4 left-4 bg-white px-4 py-2 rounded-lg shadow-lg z-10">
           <p className="text-sm font-bold">
-            총 {dataLoaded ? parkings.length : '...'개}
-          </p>
+            총 {dataLoaded ? parkings.length : '...'}개  
+            </p>
         </div>
 
         <div className="absolute top-4 left-1/2 transform -translate-x-1/2 flex gap-2 z-10">
