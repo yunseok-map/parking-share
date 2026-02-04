@@ -13,8 +13,8 @@ function MapContent() {
   const [parkings, setParkings] = useState<Parking[]>([]);
   const [mapReady, setMapReady] = useState(false);
   const [dataLoaded, setDataLoaded] = useState(false);
-  const [mapInitialized, setMapInitialized] = useState(false);
 
+  // 주차장 데이터 로드
   useEffect(() => {
     const loadParkings = async () => {
       try {
@@ -24,18 +24,19 @@ function MapContent() {
           ...doc.data(),
         })) as Parking[];
         setParkings(data);
-        setDataLoaded(true);
       } catch (error) {
         console.error('데이터 로드 실패:', error);
-        setDataLoaded(true); // 에러 시에도 로딩 완료 처리
+      } finally {
+        setDataLoaded(true);
       }
     };
 
     loadParkings();
   }, []);
 
+  // 지도 초기화 (한 번만)
   useEffect(() => {
-    if (!mapReady || mapInitialized) return;
+    if (!mapReady) return;
 
     const initMap = () => {
       const container = document.getElementById('map');
@@ -121,12 +122,10 @@ function MapContent() {
           });
         });
       }
-
-      setMapInitialized(true);
     };
 
     initMap();
-  }, [mapReady, parkings, router, searchParams, mapInitialized]);
+  }, [mapReady, parkings, router, searchParams]);
 
   const handleMapLoad = () => {
     if (window.kakao && window.kakao.maps) {
@@ -164,8 +163,9 @@ function MapContent() {
       <div className="relative w-full h-screen">
         <div id="map" className="w-full h-full bg-gray-100" />
 
+        {/* 로딩 오버레이 (지도 위에 표시) */}
         {!mapReady && (
-          <div className="absolute inset-0 flex items-center justify-center bg-gray-100 z-20">
+          <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-90 z-20">
             <div className="text-center">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
               <div className="text-lg font-semibold">지도 불러오는 중...</div>
@@ -174,13 +174,15 @@ function MapContent() {
           </div>
         )}
 
-        <div className="absolute top-4 left-4 bg-white px-4 py-2 rounded-lg shadow-lg z-10">
+        {/* 주차장 개수 - 항상 표시 */}
+        <div className="absolute top-4 left-4 bg-white px-4 py-2 rounded-lg shadow-lg z-30">
           <p className="text-sm font-bold">
-            총 {dataLoaded ? parkings.length : '...'}개  
-            </p>
+            총 {dataLoaded ? parkings.length : 0}개
+          </p>
         </div>
 
-        <div className="absolute top-4 left-1/2 transform -translate-x-1/2 flex gap-2 z-10">
+        {/* 버튼 그룹 - 항상 표시 */}
+        <div className="absolute top-4 left-1/2 transform -translate-x-1/2 flex gap-2 z-30">
           <button
             onClick={() => window.location.reload()}
             className="bg-blue-500 text-white px-3 sm:px-4 py-2 rounded-lg shadow-lg hover:bg-blue-600 text-xs sm:text-sm font-medium"
