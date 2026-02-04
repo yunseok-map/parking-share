@@ -1,12 +1,23 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { doc, getDoc, updateDoc, setDoc, deleteDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, setDoc, deleteDoc, collection, query, where, orderBy, getDocs, addDoc } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import { Parking } from '@/lib/types';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import BottomNav from '@/components/BottomNav';
+
+interface Review {
+  id: string;
+  parkingId: string;
+  userId: string;
+  userName: string;
+  userPhoto: string;
+  rating: number;
+  comment: string;
+  timestamp: any;
+}
 
 export default function DetailPage() {
   const params = useParams();
@@ -19,6 +30,11 @@ export default function DetailPage() {
   const [hasReported, setHasReported] = useState(false);
   const [reporting, setReporting] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  
+  // 리뷰 관련 state
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [newReview, setNewReview] = useState({ rating: 5, comment: '' });
+  const [submittingReview, setSubmittingReview] = useState(false);
 
   useEffect(() => {
     const fetchParking = async () => {
@@ -82,6 +98,31 @@ export default function DetailPage() {
     checkReport();
   }, [user, parking]);
 
+  // 리뷰 로드
+  useEffect(() => {
+    const fetchReviews = async () => {
+      if (!parking) return;
+
+      try {
+        const q = query(
+          collection(db, 'reviews'),
+          where('parkingId', '==', parking.id),
+          orderBy('timestamp', 'desc')
+        );
+        const querySnapshot = await getDocs(q);
+        const data = querySnapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        })) as Review[];
+        setReviews(data);
+      } catch (error) {
+        console.error('리뷰 로드 실패:', error);
+      }
+    };
+
+    fetchReviews();
+  }, [parking]);
+
   const handleVerify = async () => {
     if (!user) {
       alert('로그인이 필요합니다');
@@ -98,7 +139,6 @@ export default function DetailPage() {
     setVerifying(true);
 
     try {
-      // 검증 기록 저장
       const verificationRef = doc(db, 'verifications', `${user.uid}_${parking.id}`);
       await setDoc(verificationRef, {
         userId: user.uid,
@@ -106,7 +146,6 @@ export default function DetailPage() {
         timestamp: new Date(),
       });
 
-      // 주차장 검증 수 증가
       const docRef = doc(db, 'parkings', parking.id);
       await updateDoc(docRef, {
         verifications: parking.verifications + 1,
@@ -149,7 +188,6 @@ export default function DetailPage() {
     setReporting(true);
 
     try {
-      // 신고 기록 저장
       const reportRef = doc(db, 'reports', `${user.uid}_${parking.id}`);
       await setDoc(reportRef, {
         userId: user.uid,
@@ -157,7 +195,6 @@ export default function DetailPage() {
         timestamp: new Date(),
       });
 
-      // 신고 횟수 카운트
       const reportCountRef = doc(db, 'reportCounts', parking.id);
       const reportCountSnap = await getDoc(reportCountRef);
 
@@ -185,7 +222,6 @@ export default function DetailPage() {
   const handleDelete = async () => {
     if (!user || !parking) return;
 
-    // 내가 등록한 주차장인지 확인
     if (parking.createdBy !== user.uid) {
       alert('본인이 등록한 주차장만 삭제할 수 있습니다');
       return;
@@ -200,9 +236,7 @@ export default function DetailPage() {
     setDeleting(true);
 
     try {
-      // Firestore에서 삭제
       await deleteDoc(doc(db, 'parkings', parking.id));
-
       alert('삭제 완료!');
       router.push('/my');
     } catch (error) {
@@ -210,6 +244,53 @@ export default function DetailPage() {
       alert('삭제에 실패했습니다');
     } finally {
       setDeleting(false);
+    }
+  };
+
+  const handleSubmitReview = async () => {
+    if (!user) {
+      alert('로그인이 필요합니다');
+      return;
+    }
+
+    if (!parking || !newReview.comment.trim()) {
+      alert('리뷰 내용을 입력해주세요');
+      return;
+    }
+
+    setSubmittingReview(true);
+
+    try {
+      await addDoc(collection(db, 'reviews'), {
+        parkingId: parking.id,
+        userId: user.uid,
+        userName: user.displayName || '익명',
+        userPhoto: user.photoURL || '',
+        rating: newReview.rating,
+        comment: newReview.comment,
+        timestamp: new Date(),
+      });
+
+      // 리뷰 목록 새로고침
+      const q = query(
+        collection(db, 'reviews'),
+        where('parkingId', '==', parking.id),
+        orderBy('timestamp', 'desc')
+      );
+      const querySnapshot = await getDocs(q);
+      const data = querySnapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      })) as Review[];
+      setReviews(data);
+
+      setNewReview({ rating: 5, comment: '' });
+      alert('리뷰가 등록되었습니다!');
+    } catch (error) {
+      console.error('리뷰 등록 실패:', error);
+      alert('리뷰 등록에 실패했습니다');
+    } finally {
+      setSubmittingReview(false);
     }
   };
 
@@ -241,7 +322,6 @@ export default function DetailPage() {
             <h1 className="text-xl font-bold">주차장 상세</h1>
           </div>
 
-          {/* 내가 등록한 주차장이면 삭제 버튼 표시 */}
           {user && parking.createdBy === user.uid && (
             <button
               onClick={handleDelete}
@@ -369,15 +449,3 @@ export default function DetailPage() {
                   key={idx}
                   src={img}
                   alt={`${parking.name} ${idx + 2}`}
-                  className="w-full h-32 object-cover rounded-lg"
-                />
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
-
-      <BottomNav />
-    </div>
-  );
-}
