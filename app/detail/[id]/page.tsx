@@ -31,7 +31,6 @@ export default function DetailPage() {
   const [reporting, setReporting] = useState(false);
   const [deleting, setDeleting] = useState(false);
   
-  // 리뷰 관련 state
   const [reviews, setReviews] = useState<Review[]>([]);
   const [newReview, setNewReview] = useState({ rating: 5, comment: '' });
   const [submittingReview, setSubmittingReview] = useState(false);
@@ -58,7 +57,6 @@ export default function DetailPage() {
     fetchParking();
   }, [params.id, router]);
 
-  // 이미 검증했는지 확인
   useEffect(() => {
     const checkVerification = async () => {
       if (!user || !parking) return;
@@ -78,7 +76,6 @@ export default function DetailPage() {
     checkVerification();
   }, [user, parking]);
 
-  // 이미 신고했는지 확인
   useEffect(() => {
     const checkReport = async () => {
       if (!user || !parking) return;
@@ -98,7 +95,6 @@ export default function DetailPage() {
     checkReport();
   }, [user, parking]);
 
-  // 리뷰 로드
   useEffect(() => {
     const fetchReviews = async () => {
       if (!parking) return;
@@ -271,7 +267,6 @@ export default function DetailPage() {
         timestamp: new Date(),
       });
 
-      // 리뷰 목록 새로고침
       const q = query(
         collection(db, 'reviews'),
         where('parkingId', '==', parking.id),
@@ -313,7 +308,6 @@ export default function DetailPage() {
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
       <div className="max-w-2xl mx-auto">
-        {/* 헤더 */}
         <div className="bg-white p-4 shadow sticky top-0 z-10 flex items-center justify-between">
           <div className="flex items-center">
             <button onClick={() => router.back()} className="mr-4 text-2xl">
@@ -333,7 +327,6 @@ export default function DetailPage() {
           )}
         </div>
 
-        {/* 이미지 */}
         {parking.images.length > 0 && (
           <div className="bg-gray-200 h-64">
             <img
@@ -344,7 +337,6 @@ export default function DetailPage() {
           </div>
         )}
 
-        {/* 정보 */}
         <div className="bg-white p-6 space-y-4">
           <h2 className="text-2xl font-bold">{parking.name}</h2>
 
@@ -397,7 +389,6 @@ export default function DetailPage() {
           )}
         </div>
 
-        {/* 액션 버튼 */}
         <div className="p-4 sm:p-6 space-y-3">
           <button
             onClick={handleVerify}
@@ -439,7 +430,6 @@ export default function DetailPage() {
           </button>
         </div>
 
-        {/* 추가 이미지 */}
         {parking.images.length > 1 && (
           <div className="p-4 sm:p-6">
             <p className="font-semibold mb-3">추가 사진</p>
@@ -448,4 +438,79 @@ export default function DetailPage() {
                 <img
                   key={idx}
                   src={img}
-                  alt={`${parking.name} ${idx + 2}`}
+                  alt={parking.name + ' ' + (idx + 2)}
+                  className="w-full h-32 object-cover rounded-lg"
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="p-4 sm:p-6 bg-white mt-2">
+          <h3 className="font-bold text-lg mb-4">리뷰 ({reviews.length})</h3>
+
+          {user && (
+            <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+              <div className="flex items-center gap-2 mb-3">
+                <span className="font-semibold">별점:</span>
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <button
+                    key={star}
+                    onClick={() => setNewReview({ ...newReview, rating: star })}
+                    className="text-2xl"
+                  >
+                    {star <= newReview.rating ? '⭐' : '☆'}
+                  </button>
+                ))}
+              </div>
+              <textarea
+                value={newReview.comment}
+                onChange={(e) => setNewReview({ ...newReview, comment: e.target.value })}
+                placeholder="이 주차장에 대한 리뷰를 남겨주세요..."
+                rows={3}
+                className="w-full border border-gray-300 p-3 rounded-lg mb-2"
+              />
+              <button
+                onClick={handleSubmitReview}
+                disabled={submittingReview}
+                className="w-full bg-blue-500 text-white py-2 rounded-lg font-medium hover:bg-blue-600 disabled:bg-gray-400"
+              >
+                {submittingReview ? '등록 중...' : '리뷰 등록'}
+              </button>
+            </div>
+          )}
+
+          <div className="space-y-4">
+            {reviews.length === 0 ? (
+              <p className="text-gray-500 text-center py-8">아직 리뷰가 없습니다</p>
+            ) : (
+              reviews.map((review) => (
+                <div key={review.id} className="border-b border-gray-200 pb-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <img
+                      src={review.userPhoto || 'https://via.placeholder.com/40'}
+                      alt={review.userName}
+                      className="w-8 h-8 rounded-full"
+                    />
+                    <div className="flex-1">
+                      <p className="font-semibold text-sm">{review.userName}</p>
+                      <div className="flex items-center gap-1">
+                        {'⭐'.repeat(review.rating)}
+                        <span className="text-xs text-gray-500 ml-2">
+                          {review.timestamp?.toDate?.()?.toLocaleDateString() || ''}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  <p className="text-gray-700 text-sm">{review.comment}</p>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </div>
+
+      <BottomNav />
+    </div>
+  );
+}
