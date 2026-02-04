@@ -29,103 +29,64 @@ export default function AddParking() {
   const [images, setImages] = useState<FileList | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
+    e.preventDefault();
 
-  if (!user) {
-    alert('로그인이 필요합니다');
-    return;
-  }
-
-  if (!formData.lat || !formData.lng) {
-    alert('위도와 경도를 입력해주세요');
-    return;
-  }
-
-  if (!images || images.length === 0) {
-    alert('주차장 사진을 최소 1장 이상 추가해주세요');
-    return;
-  }
-
-  // ===== 새로 추가: 카테고리별 검증 =====
-  if (formData.category === 'hidden') {
-    if (!formData.tip || formData.tip.trim().length < 10) {
-      alert('숨은꿀팁은 "꿀팁" 정보를 10자 이상 입력해주세요!\n예: "주말 오전 11시 이전만 무료, 단속 없음"');
+    if (!user) {
+      alert('로그인이 필요합니다');
       return;
     }
-    if (images.length < 2) {
-      alert('숨은꿀팁은 사진을 최소 2장 이상 추가해주세요!');
+
+    if (!formData.lat || !formData.lng) {
+      alert('위도와 경도를 입력해주세요');
       return;
     }
-    if (!formData.description || formData.description.trim().length < 20) {
-      alert('숨은꿀팁은 상세 설명을 20자 이상 입력해주세요!');
+
+    if (!images || images.length === 0) {
+      alert('주차장 사진을 최소 1장 이상 추가해주세요');
       return;
     }
-  }
 
-  if (formData.category === 'tip') {
-    if (!formData.tip || formData.tip.trim().length < 10) {
-      alert('조건부무료는 "꿀팁"에 무료 조건을 명확히 입력해주세요!\n예: "영수증 제시 시 2시간 무료"');
-      return;
-    }
-  }
-  // ===== 여기까지 추가 =====
-
-  setLoading(true);
-
-  try {
-    const imageUrls: string[] = [];
-    for (let i = 0; i < Math.min(images.length, 5); i++) {
-      const imageRef = ref(storage, `parkings/${Date.now()}_${i}`);
-      await uploadBytes(imageRef, images[i]);
-      const url = await getDownloadURL(imageRef);
-      imageUrls.push(url);
+    // 카테고리별 검증
+    if (formData.category === 'hidden') {
+      if (!formData.tip || formData.tip.trim().length < 10) {
+        alert('숨은꿀팁은 "꿀팁" 정보를 10자 이상 입력해주세요!\n예: "주말 오전 11시 이전만 무료, 단속 없음"');
+        return;
+      }
+      if (images.length < 2) {
+        alert('숨은꿀팁은 사진을 최소 2장 이상 추가해주세요!');
+        return;
+      }
+      if (!formData.description || formData.description.trim().length < 20) {
+        alert('숨은꿀팁은 상세 설명을 20자 이상 입력해주세요!');
+        return;
+      }
     }
 
-    await addDoc(collection(db, 'parkings'), {
-      name: formData.name,
-      location: {
-        lat: parseFloat(formData.lat),
-        lng: parseFloat(formData.lng),
-        address: formData.address,
-      },
-      type: formData.type,
-      category: formData.category,
-      fee: formData.type === 'paid' ? parseFloat(formData.fee) : null,
-      timeLimit: formData.timeLimit || null,
-      description: formData.description,
-      tip: formData.tip || null,
-      caution: formData.caution || null,
-      bestTime: formData.bestTime || null,
-      images: imageUrls,
-      createdBy: user.uid,
-      createdAt: new Date(),
-      verifications: 0,
-      rating: 0,
-      averageRating: 0,
-      reviewCount: 0,
-      status: 'approved', // 일단 바로 승인 (나중에 'pending'으로 변경 가능)
-    });
+    if (formData.category === 'tip') {
+      if (!formData.tip || formData.tip.trim().length < 10) {
+        alert('조건부무료는 "꿀팁"에 무료 조건을 명확히 입력해주세요!\n예: "영수증 제시 시 2시간 무료"');
+        return;
+      }
+    }
 
-    alert('등록 완료!');
-    router.push('/');
-  } catch (error) {
-    console.error(error);
-    alert('등록 실패: ' + error);
-  } finally {
-    setLoading(false);
-  }
-};
     setLoading(true);
 
     try {
+      // 이미지 업로드 (수정: Promise.all 사용)
       const imageUrls: string[] = [];
+      const uploadPromises = [];
+      
       for (let i = 0; i < Math.min(images.length, 5); i++) {
         const imageRef = ref(storage, `parkings/${Date.now()}_${i}`);
-        await uploadBytes(imageRef, images[i]);
-        const url = await getDownloadURL(imageRef);
-        imageUrls.push(url);
+        uploadPromises.push(
+          uploadBytes(imageRef, images[i]).then(() => getDownloadURL(imageRef))
+        );
       }
+      
+      const urls = await Promise.all(uploadPromises);
+      imageUrls.push(...urls);
 
+      // Firestore에 저장
       await addDoc(collection(db, 'parkings'), {
         name: formData.name,
         location: {
@@ -150,7 +111,7 @@ export default function AddParking() {
         reviewCount: 0,
       });
 
-      alert('등록 완료! 검증 3회 이상 시 공개됩니다.');
+      alert('등록 완료!');
       router.push('/');
     } catch (error) {
       console.error(error);
@@ -206,7 +167,7 @@ export default function AddParking() {
           {/* 카테고리 */}
           <div>
             <label className="block mb-2 font-semibold text-sm sm:text-base">
-              카테고리 * <span className="text-xs text-gray-500">(어떤 종류의 주차장인가요?)</span>
+              카테고리 * <span className="text-xs text-gray-500">(신중하게 선택해주세요)</span>
             </label>
             <div className="grid grid-cols-3 gap-2">
               <button
@@ -220,7 +181,7 @@ export default function AddParking() {
               >
                 <div className="text-2xl mb-1">💎</div>
                 <div className="font-bold">숨은꿀팁</div>
-                <div className="text-xs text-gray-500">동네 주민만 아는</div>
+                <div className="text-xs text-gray-500">지도앱에 없는 정보</div>
               </button>
               <button
                 type="button"
@@ -233,7 +194,7 @@ export default function AddParking() {
               >
                 <div className="text-2xl mb-1">💡</div>
                 <div className="font-bold">조건부무료</div>
-                <div className="text-xs text-gray-500">조건 충족 시</div>
+                <div className="text-xs text-gray-500">조건 충족 시 무료</div>
               </button>
               <button
                 type="button"
@@ -249,6 +210,24 @@ export default function AddParking() {
                 <div className="text-xs text-gray-500">일반 주차장</div>
               </button>
             </div>
+
+            {/* 카테고리별 안내 */}
+            {formData.category === 'hidden' && (
+              <div className="mt-2 p-3 bg-purple-50 rounded text-xs">
+                💎 <strong>숨은꿀팁 기준:</strong><br/>
+                • 카카오맵/네이버에 없는 정보<br/>
+                • 동네 주민만 아는 곳<br/>
+                • 사진 2장 이상 + 상세 팁 필수
+              </div>
+            )}
+            {formData.category === 'tip' && (
+              <div className="mt-2 p-3 bg-blue-50 rounded text-xs">
+                💡 <strong>조건부무료 기준:</strong><br/>
+                • 특정 조건 충족 시 무료<br/>
+                • 예: 영수증 제시, 시간대 제한<br/>
+                • 조건을 명확히 입력해주세요
+              </div>
+            )}
           </div>
 
           <div>
