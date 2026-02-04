@@ -21,6 +21,9 @@ export default function ListPage() {
   const [sort, setSort] = useState<SortType>('distance');
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
 
+  // ✨ [추가] 검색어 상태 관리
+  const [searchTerm, setSearchTerm] = useState('');
+
   // 현재 위치 가져오기
   useEffect(() => {
     if (navigator.geolocation) {
@@ -73,11 +76,19 @@ export default function ListPage() {
     return R * c; // km
   };
 
-  // 필터링 & 정렬
+  // 필터링 & 정렬 & 검색 통합
   useEffect(() => {
     let result = [...parkings];
 
-    // 필터링
+    // ✨ [추가] 검색어 필터링 (가장 먼저 수행)
+    if (searchTerm) {
+      result = result.filter((p) => 
+        p.name.includes(searchTerm) || 
+        p.location.address.includes(searchTerm)
+      );
+    }
+
+    // 유형 필터링
     if (filter === 'free') {
       result = result.filter((p) => p.type === 'free');
     } else if (filter === 'paid') {
@@ -110,7 +121,7 @@ export default function ListPage() {
     }
 
     setFilteredParkings(result);
-  }, [parkings, filter, sort, userLocation]);
+  }, [parkings, filter, sort, userLocation, searchTerm]); // ✨ [추가] 의존성 배열에 searchTerm 추가
 
   const getDistance = (parking: Parking) => {
     if (!userLocation) return '거리 계산 중...';
@@ -140,6 +151,17 @@ export default function ListPage() {
         {/* 헤더 */}
         <div className="bg-white p-4 shadow sticky top-0 z-10">
           <h1 className="text-2xl font-bold mb-4">주차장 목록</h1>
+
+          {/* ✨ [추가] 검색창 UI */}
+          <div className="mb-4">
+            <input
+              type="text"
+              placeholder="주차장 이름 또는 주소 검색"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
 
           {/* 필터 & 정렬 */}
           <div className="flex gap-2 overflow-x-auto">
