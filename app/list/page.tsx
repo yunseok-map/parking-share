@@ -1,0 +1,290 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import { collection, getDocs } from 'firebase/firestore';
+import { db, auth } from '@/lib/firebase';
+import { Parking } from '@/lib/types';
+import { useRouter } from 'next/navigation';
+import { useAuthState } from 'react-firebase-hooks/auth';
+import BottomNav from '@/components/BottomNav';
+
+type FilterType = 'all' | 'free' | 'paid';
+type SortType = 'distance' | 'price';
+
+export default function ListPage() {
+  const router = useRouter();
+  const [user] = useAuthState(auth);
+  const [parkings, setParkings] = useState<Parking[]>([]);
+  const [filteredParkings, setFilteredParkings] = useState<Parking[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState<FilterType>('all');
+  const [sort, setSort] = useState<SortType>('distance');
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+
+  // 현재 위치 가져오기
+  useEffect(() => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setUserLocation({
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+          });
+        },
+        (error) => {
+          console.error('위치 정보 가져오기 실패:', error);
+        }
+      );
+    }
+  }, []);
+
+  // 주차장 데이터 로드
+  useEffect(() => {
+    const fetchParkings = async () => {
+      try {
+        const querySnapshot = await getDocs(collection(db, 'parkings'));
+        const data = querySnapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        })) as Parking[];
+        setParkings(data);
+      } catch (error) {
+        console.error('데이터 로드 실패:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchParkings();
+  }, []);
+
+  // 거리 계산 함수 (Haversine formula)
+  const calculateDistance = (lat1: number, lng1: number, lat2: number, lng2: number) => {
+    const R = 6371; // 지구 반지름 (km)
+    const dLat = ((lat2 - lat1) * Math.PI) / 180;
+    const dLng = ((lng2 - lng1) * Math.PI) / 180;
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos((lat1 * Math.PI) / 180) *
+        Math.cos((lat2 * Math.PI) / 180) *
+        Math.sin(dLng / 2) *
+        Math.sin(dLng / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c; // km
+  };
+
+  // 필터링 & 정렬
+  useEffect(() => {
+    let result = [...parkings];
+
+    // 필터링
+    if (filter === 'free') {
+      result = result.filter((p) => p.type === 'free');
+    } else if (filter === 'paid') {
+      result = result.filter((p) => p.type === 'paid');
+    }
+
+    // 정렬
+    if (sort === 'distance' && userLocation) {
+      result.sort((a, b) => {
+        const distA = calculateDistance(
+          userLocation.lat,
+          userLocation.lng,
+          a.location.lat,
+          a.location.lng
+        );
+        const distB = calculateDistance(
+          userLocation.lat,
+          userLocation.lng,
+          b.location.lat,
+          b.location.lng
+        );
+        return distA - distB;
+      });
+    } else if (sort === 'price') {
+      result.sort((a, b) => {
+        const priceA = a.type === 'free' ? 0 : a.fee || 999999;
+        const priceB = b.type === 'free' ? 0 : b.fee || 999999;
+        return priceA - priceB;
+      });
+    }
+
+    setFilteredParkings(result);
+  }, [parkings, filter, sort, userLocation]);
+
+  const getDistance = (parking: Parking) => {
+    if (!userLocation) return '거리 계산 중...';
+    const distance = calculateDistance(
+      userLocation.lat,
+      userLocation.lng,
+      parking.location.lat,
+      parking.location.lng
+    );
+    if (distance < 1) {
+      return `${Math.round(distance * 1000)}m`;
+    }
+    return `${distance.toFixed(1)}km`;
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-lg">로딩 중...</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50 pb-20">
+      <div className="max-w-4xl mx-auto">
+        {/* 헤더 */}
+        <div className="bg-white p-4 shadow sticky top-0 z-10">
+          <h1 className="text-2xl font-bold mb-4">주차장 목록</h1>
+
+          {/* 필터 & 정렬 */}
+          <div className="flex gap-2 overflow-x-auto">
+            {/* 유형 필터 */}
+            <button
+              onClick={() => setFilter('all')}
+              className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap ${
+                filter === 'all'
+                  ? 'bg-blue-500 text-white'
+                  : 'bg-gray-200 text-gray-700'
+              }`}
+            >
+              전체
+            </button>
+            <button
+              onClick={() => setFilter('free')}
+              className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap ${
+                filter === 'free'
+                  ? 'bg-blue-500 text-white'
+                  : 'bg-gray-200 text-gray-700'
+              }`}
+            >
+              무료만
+            </button>
+            <button
+              onClick={() => setFilter('paid')}
+              className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap ${
+                filter === 'paid'
+                  ? 'bg-blue-500 text-white'
+                  : 'bg-gray-200 text-gray-700'
+              }`}
+            >
+              유료만
+            </button>
+
+            <div className="w-px bg-gray-300 mx-2" />
+
+            {/* 정렬 */}
+            <button
+              onClick={() => setSort('distance')}
+              className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap ${
+                sort === 'distance'
+                  ? 'bg-green-500 text-white'
+                  : 'bg-gray-200 text-gray-700'
+              }`}
+            >
+              거리순
+            </button>
+            <button
+              onClick={() => setSort('price')}
+              className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap ${
+                sort === 'price'
+                  ? 'bg-green-500 text-white'
+                  : 'bg-gray-200 text-gray-700'
+              }`}
+            >
+              가격순
+            </button>
+          </div>
+
+          {/* 결과 수 */}
+          <p className="text-sm text-gray-600 mt-3">
+            총 {filteredParkings.length}개의 주차장
+          </p>
+        </div>
+
+        {/* 주차장 목록 */}
+        <div className="p-4 space-y-3">
+          {filteredParkings.length === 0 ? (
+            <div className="text-center py-20">
+              <p className="text-gray-500">해당하는 주차장이 없습니다</p>
+            </div>
+          ) : (
+            filteredParkings.map((parking) => (
+              <div
+                key={parking.id}
+                onClick={() => router.push(`/detail/${parking.id}`)}
+                className="bg-white rounded-lg shadow hover:shadow-lg transition cursor-pointer overflow-hidden"
+              >
+                <div className="flex">
+                  {/* 이미지 */}
+                  <div className="w-32 h-32 sm:w-40 sm:h-40 flex-shrink-0 bg-gray-200">
+                    {parking.images.length > 0 ? (
+                      <img
+                        src={parking.images[0]}
+                        alt={parking.name}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-gray-400">
+                        <span className="text-4xl">🅿️</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 정보 */}
+                  <div className="flex-1 p-3 sm:p-4 flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-start justify-between mb-2">
+                        <h3 className="font-bold text-base sm:text-lg line-clamp-1">
+                          {parking.name}
+                        </h3>
+                        <span
+                          className={`px-2 py-1 rounded text-xs font-medium whitespace-nowrap ml-2 ${
+                            parking.type === 'free'
+                              ? 'bg-blue-100 text-blue-700'
+                              : 'bg-red-100 text-red-700'
+                          }`}
+                        >
+                          {parking.type === 'free' ? '무료' : '유료'}
+                        </span>
+                      </div>
+
+                      <p className="text-xs sm:text-sm text-gray-600 line-clamp-1 mb-2">
+                        📍 {parking.location.address}
+                      </p>
+
+                      {parking.type === 'paid' && parking.fee && (
+                        <p className="text-sm font-semibold text-gray-800 mb-1">
+                          💰 {parking.fee.toLocaleString()}원/시간
+                        </p>
+                      )}
+
+                      {parking.timeLimit && (
+                        <p className="text-xs text-gray-500 mb-1">
+                          ⏱️ {parking.timeLimit}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="flex items-center justify-between mt-2 pt-2 border-t border-gray-100">
+                      <div className="flex items-center gap-3 text-xs text-gray-500">
+                        <span>✅ {parking.verifications}명 검증</span>
+                        <span>📍 {getDistance(parking)}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+
+      <BottomNav />
+    </div>
+  );
+}
