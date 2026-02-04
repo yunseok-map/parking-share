@@ -24,17 +24,17 @@ export default function LoginButton() {
   if (loading) return null;
 
   return (
-    <div className="fixed top-4 right-4 z-50">
+    <div className="fixed top-2 right-2 sm:top-4 sm:right-4 z-50">
       {user ? (
-        <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-lg shadow-lg">
+        <div className="flex items-center gap-1 sm:gap-2 bg-white px-2 sm:px-4 py-1 sm:py-2 rounded-lg shadow-lg text-xs sm:text-base">
           <img
             src={user.photoURL || ''}
             alt={user.displayName || '사용자'}
-            className="w-8 h-8 rounded-full"
+            className="w-6 h-6 sm:w-8 sm:h-8 rounded-full"
           />
           <button
             onClick={handleLogout}
-            className="text-sm font-medium text-red-500"
+            className="text-xs sm:text-sm font-medium text-red-500"
           >
             로그아웃
           </button>
@@ -42,9 +42,9 @@ export default function LoginButton() {
       ) : (
         <button
           onClick={handleLogin}
-          className="bg-blue-500 text-white px-4 py-2 rounded-lg shadow-lg font-medium"
+          className="bg-blue-500 text-white px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg shadow-lg font-medium text-xs sm:text-base hover:bg-blue-600"
         >
-          Google 로그인
+          로그인
         </button>
       )}
     </div>
