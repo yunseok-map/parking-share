@@ -9,7 +9,8 @@ import { useAuthState } from 'react-firebase-hooks/auth';
 import BottomNav from '@/components/BottomNav';
 
 type FilterType = 'all' | 'free' | 'paid';
-type SortType = 'distance' | 'price';
+type CategoryType = 'all' | 'official' | 'hidden' | 'tip';
+type SortType = 'distance' | 'price' | 'rating' | 'recent';
 
 export default function ListPage() {
   const router = useRouter();
@@ -18,13 +19,11 @@ export default function ListPage() {
   const [filteredParkings, setFilteredParkings] = useState<Parking[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<FilterType>('all');
+  const [category, setCategory] = useState<CategoryType>('all');
   const [sort, setSort] = useState<SortType>('distance');
+  const [searchTerm, setSearchTerm] = useState('');
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
 
-  // ✨ [추가] 검색어 상태 관리
-  const [searchTerm, setSearchTerm] = useState('');
-
-  // 현재 위치 가져오기
   useEffect(() => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
@@ -41,7 +40,6 @@ export default function ListPage() {
     }
   }, []);
 
-  // 주차장 데이터 로드
   useEffect(() => {
     const fetchParkings = async () => {
       try {
@@ -61,9 +59,8 @@ export default function ListPage() {
     fetchParkings();
   }, []);
 
-  // 거리 계산 함수 (Haversine formula)
   const calculateDistance = (lat1: number, lng1: number, lat2: number, lng2: number) => {
-    const R = 6371; // 지구 반지름 (km)
+    const R = 6371;
     const dLat = ((lat2 - lat1) * Math.PI) / 180;
     const dLng = ((lng2 - lng1) * Math.PI) / 180;
     const a =
@@ -73,26 +70,32 @@ export default function ListPage() {
         Math.sin(dLng / 2) *
         Math.sin(dLng / 2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c; // km
+    return R * c;
   };
 
-  // 필터링 & 정렬 & 검색 통합
   useEffect(() => {
     let result = [...parkings];
 
-    // ✨ [추가] 검색어 필터링 (가장 먼저 수행)
-    if (searchTerm) {
-      result = result.filter((p) => 
-        p.name.includes(searchTerm) || 
-        p.location.address.includes(searchTerm)
+    // 검색
+    if (searchTerm.trim()) {
+      result = result.filter(
+        (p) =>
+          p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          p.location.address.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          p.description?.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
 
-    // 유형 필터링
+    // 유형 필터
     if (filter === 'free') {
       result = result.filter((p) => p.type === 'free');
     } else if (filter === 'paid') {
       result = result.filter((p) => p.type === 'paid');
+    }
+
+    // 카테고리 필터
+    if (category !== 'all') {
+      result = result.filter((p) => p.category === category);
     }
 
     // 정렬
@@ -118,10 +121,18 @@ export default function ListPage() {
         const priceB = b.type === 'free' ? 0 : b.fee || 999999;
         return priceA - priceB;
       });
+    } else if (sort === 'rating') {
+      result.sort((a, b) => (b.averageRating || 0) - (a.averageRating || 0));
+    } else if (sort === 'recent') {
+      result.sort((a, b) => {
+        const dateA = a.createdAt?.toDate?.() || new Date(0);
+        const dateB = b.createdAt?.toDate?.() || new Date(0);
+        return dateB.getTime() - dateA.getTime();
+      });
     }
 
     setFilteredParkings(result);
-  }, [parkings, filter, sort, userLocation, searchTerm]); // ✨ [추가] 의존성 배열에 searchTerm 추가
+  }, [parkings, filter, category, sort, searchTerm, userLocation]);
 
   const getDistance = (parking: Parking) => {
     if (!userLocation) return '거리 계산 중...';
@@ -135,6 +146,15 @@ export default function ListPage() {
       return `${Math.round(distance * 1000)}m`;
     }
     return `${distance.toFixed(1)}km`;
+  };
+
+  const getCategoryLabel = (cat: string) => {
+    const labels = {
+      official: '🅿️ 공식',
+      hidden: '💎 숨은꿀팁',
+      tip: '💡 조건부무료',
+    };
+    return labels[cat as keyof typeof labels] || '';
   };
 
   if (loading) {
@@ -152,23 +172,66 @@ export default function ListPage() {
         <div className="bg-white p-4 shadow sticky top-0 z-10">
           <h1 className="text-2xl font-bold mb-4">주차장 목록</h1>
 
-          {/* ✨ [추가] 검색창 UI */}
+          {/* 검색바 */}
           <div className="mb-4">
             <input
               type="text"
-              placeholder="주차장 이름 또는 주소 검색"
+              placeholder="🔍 이름, 주소, 설명 검색..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
 
-          {/* 필터 & 정렬 */}
+          {/* 카테고리 필터 */}
+          <div className="flex gap-2 overflow-x-auto mb-3 pb-2">
+            <button
+              onClick={() => setCategory('all')}
+              className={`px-3 py-2 rounded-full text-xs font-medium whitespace-nowrap ${
+                category === 'all'
+                  ? 'bg-purple-500 text-white'
+                  : 'bg-gray-200 text-gray-700'
+              }`}
+            >
+              전체
+            </button>
+            <button
+              onClick={() => setCategory('hidden')}
+              className={`px-3 py-2 rounded-full text-xs font-medium whitespace-nowrap ${
+                category === 'hidden'
+                  ? 'bg-purple-500 text-white'
+                  : 'bg-gray-200 text-gray-700'
+              }`}
+            >
+              💎 숨은꿀팁
+            </button>
+            <button
+              onClick={() => setCategory('tip')}
+              className={`px-3 py-2 rounded-full text-xs font-medium whitespace-nowrap ${
+                category === 'tip'
+                  ? 'bg-purple-500 text-white'
+                  : 'bg-gray-200 text-gray-700'
+              }`}
+            >
+              💡 조건부무료
+            </button>
+            <button
+              onClick={() => setCategory('official')}
+              className={`px-3 py-2 rounded-full text-xs font-medium whitespace-nowrap ${
+                category === 'official'
+                  ? 'bg-purple-500 text-white'
+                  : 'bg-gray-200 text-gray-700'
+              }`}
+            >
+              🅿️ 공식
+            </button>
+          </div>
+
+          {/* 유형 필터 & 정렬 */}
           <div className="flex gap-2 overflow-x-auto">
-            {/* 유형 필터 */}
             <button
               onClick={() => setFilter('all')}
-              className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap ${
+              className={`px-3 py-2 rounded-full text-xs font-medium whitespace-nowrap ${
                 filter === 'all'
                   ? 'bg-blue-500 text-white'
                   : 'bg-gray-200 text-gray-700'
@@ -178,7 +241,7 @@ export default function ListPage() {
             </button>
             <button
               onClick={() => setFilter('free')}
-              className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap ${
+              className={`px-3 py-2 rounded-full text-xs font-medium whitespace-nowrap ${
                 filter === 'free'
                   ? 'bg-blue-500 text-white'
                   : 'bg-gray-200 text-gray-700'
@@ -188,7 +251,7 @@ export default function ListPage() {
             </button>
             <button
               onClick={() => setFilter('paid')}
-              className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap ${
+              className={`px-3 py-2 rounded-full text-xs font-medium whitespace-nowrap ${
                 filter === 'paid'
                   ? 'bg-blue-500 text-white'
                   : 'bg-gray-200 text-gray-700'
@@ -197,12 +260,11 @@ export default function ListPage() {
               유료만
             </button>
 
-            <div className="w-px bg-gray-300 mx-2" />
+            <div className="w-px bg-gray-300 mx-1" />
 
-            {/* 정렬 */}
             <button
               onClick={() => setSort('distance')}
-              className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap ${
+              className={`px-3 py-2 rounded-full text-xs font-medium whitespace-nowrap ${
                 sort === 'distance'
                   ? 'bg-green-500 text-white'
                   : 'bg-gray-200 text-gray-700'
@@ -212,7 +274,7 @@ export default function ListPage() {
             </button>
             <button
               onClick={() => setSort('price')}
-              className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap ${
+              className={`px-3 py-2 rounded-full text-xs font-medium whitespace-nowrap ${
                 sort === 'price'
                   ? 'bg-green-500 text-white'
                   : 'bg-gray-200 text-gray-700'
@@ -220,9 +282,28 @@ export default function ListPage() {
             >
               가격순
             </button>
+            <button
+              onClick={() => setSort('rating')}
+              className={`px-3 py-2 rounded-full text-xs font-medium whitespace-nowrap ${
+                sort === 'rating'
+                  ? 'bg-green-500 text-white'
+                  : 'bg-gray-200 text-gray-700'
+              }`}
+            >
+              평점순
+            </button>
+            <button
+              onClick={() => setSort('recent')}
+              className={`px-3 py-2 rounded-full text-xs font-medium whitespace-nowrap ${
+                sort === 'recent'
+                  ? 'bg-green-500 text-white'
+                  : 'bg-gray-200 text-gray-700'
+              }`}
+            >
+              최신순
+            </button>
           </div>
 
-          {/* 결과 수 */}
           <p className="text-sm text-gray-600 mt-3">
             총 {filteredParkings.length}개의 주차장
           </p>
@@ -232,7 +313,17 @@ export default function ListPage() {
         <div className="p-4 space-y-3">
           {filteredParkings.length === 0 ? (
             <div className="text-center py-20">
-              <p className="text-gray-500">해당하는 주차장이 없습니다</p>
+              <p className="text-gray-500 mb-2">
+                {searchTerm ? '검색 결과가 없습니다' : '해당하는 주차장이 없습니다'}
+              </p>
+              {searchTerm && (
+                <button
+                  onClick={() => setSearchTerm('')}
+                  className="text-blue-500 text-sm"
+                >
+                  검색 초기화
+                </button>
+              )}
             </div>
           ) : (
             filteredParkings.map((parking) => (
@@ -243,7 +334,7 @@ export default function ListPage() {
               >
                 <div className="flex">
                   {/* 이미지 */}
-                  <div className="w-32 h-32 sm:w-40 sm:h-40 flex-shrink-0 bg-gray-200">
+                  <div className="w-32 h-32 sm:w-40 sm:h-40 flex-shrink-0 bg-gray-200 relative">
                     {parking.images.length > 0 ? (
                       <img
                         src={parking.images[0]}
@@ -253,6 +344,12 @@ export default function ListPage() {
                     ) : (
                       <div className="w-full h-full flex items-center justify-center text-gray-400">
                         <span className="text-4xl">🅿️</span>
+                      </div>
+                    )}
+                    {/* 카테고리 뱃지 */}
+                    {parking.category && parking.category !== 'official' && (
+                      <div className="absolute top-2 left-2 bg-black bg-opacity-70 text-white text-xs px-2 py-1 rounded">
+                        {getCategoryLabel(parking.category)}
                       </div>
                     )}
                   </div>
@@ -279,6 +376,12 @@ export default function ListPage() {
                         📍 {parking.location.address}
                       </p>
 
+                      {parking.tip && (
+                        <p className="text-xs text-purple-600 mb-1 line-clamp-1">
+                          💡 {parking.tip}
+                        </p>
+                      )}
+
                       {parking.type === 'paid' && parking.fee && (
                         <p className="text-sm font-semibold text-gray-800 mb-1">
                           💰 {parking.fee.toLocaleString()}원/시간
@@ -294,7 +397,10 @@ export default function ListPage() {
 
                     <div className="flex items-center justify-between mt-2 pt-2 border-t border-gray-100">
                       <div className="flex items-center gap-3 text-xs text-gray-500">
-                        <span>✅ {parking.verifications}명 검증</span>
+                        <span>✅ {parking.verifications}명</span>
+                        {parking.averageRating && (
+                          <span>⭐ {parking.averageRating.toFixed(1)}</span>
+                        )}
                         <span>📍 {getDistance(parking)}</span>
                       </div>
                     </div>
