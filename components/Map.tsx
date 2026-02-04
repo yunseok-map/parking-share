@@ -126,13 +126,14 @@ export default function KakaoMap() {
         <div id="map" className="w-full h-full bg-gray-100" />
         
         {!mapReady && (
-          <div className="absolute inset-0 flex items-center justify-center bg-white">
-            <div className="text-center">
-              <div className="text-2xl mb-2">🗺️</div>
-              <div className="text-lg">지도 로딩 중...</div>
-            </div>
-          </div>
-        )}
+  <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
+    <div className="text-center">
+      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+      <div className="text-lg font-semibold">지도 불러오는 중...</div>
+      <div className="text-sm text-gray-500 mt-2">잠시만 기다려주세요</div>
+    </div>
+  </div>
+)}
 
         <div className="absolute top-4 left-4 bg-white px-4 py-2 rounded-lg shadow-lg z-10">
           <p className="text-sm font-bold">총 {parkings.length}개</p>
