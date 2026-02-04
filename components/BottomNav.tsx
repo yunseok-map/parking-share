@@ -20,6 +20,16 @@ export default function BottomNav() {
         </Link>
 
         <Link
+          href="/list"
+          className={`flex flex-col items-center justify-center flex-1 h-full ${
+            pathname === '/list' ? 'text-blue-500' : 'text-gray-500'
+          }`}
+        >
+          <span className="text-xl sm:text-2xl mb-0.5">📋</span>
+          <span className="text-[10px] sm:text-xs font-medium">목록</span>
+        </Link>
+
+        <Link
           href="/add"
           className={`flex flex-col items-center justify-center flex-1 h-full ${
             pathname === '/add' ? 'text-blue-500' : 'text-gray-500'
