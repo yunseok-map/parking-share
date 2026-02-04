@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { collection, query, where, getDocs, deleteDoc, doc } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { useRouter } from 'next/navigation';
@@ -38,6 +38,23 @@ export default function MyPage() {
 
     fetchMyParkings();
   }, [user]);
+
+  const handleDelete = async (parkingId: string) => {
+    const confirmDelete = confirm('정말로 삭제하시겠습니까?');
+    if (!confirmDelete) return;
+
+    try {
+      await deleteDoc(doc(db, 'parkings', parkingId));
+
+      // 목록에서 제거
+      setMyParkings(myParkings.filter((p) => p.id !== parkingId));
+
+      alert('삭제 완료!');
+    } catch (error) {
+      console.error('삭제 실패:', error);
+      alert('삭제에 실패했습니다');
+    }
+  };
 
   if (!user) {
     return (
@@ -103,25 +120,40 @@ export default function MyPage() {
               {myParkings.map((parking) => (
                 <div
                   key={parking.id}
-                  onClick={() => router.push(`/detail/${parking.id}`)}
-                  className="border border-gray-200 p-4 rounded-lg cursor-pointer hover:bg-gray-50"
+                  className="border border-gray-200 p-4 rounded-lg hover:bg-gray-50"
                 >
-                  <div className="flex justify-between items-start mb-2">
-                    <h4 className="font-semibold">{parking.name}</h4>
-                    <span
-                      className={`px-2 py-1 rounded text-xs ${
-                        parking.type === 'free'
-                          ? 'bg-blue-100 text-blue-700'
-                          : 'bg-red-100 text-red-700'
-                      }`}
-                    >
-                      {parking.type === 'free' ? '무료' : '유료'}
-                    </span>
+                  <div
+                    onClick={() => router.push(`/detail/${parking.id}`)}
+                    className="cursor-pointer"
+                  >
+                    <div className="flex justify-between items-start mb-2">
+                      <h4 className="font-semibold">{parking.name}</h4>
+                      <span
+                        className={`px-2 py-1 rounded text-xs ${
+                          parking.type === 'free'
+                            ? 'bg-blue-100 text-blue-700'
+                            : 'bg-red-100 text-red-700'
+                        }`}
+                      >
+                        {parking.type === 'free' ? '무료' : '유료'}
+                      </span>
+                    </div>
+                    <p className="text-sm text-gray-600 mb-2">{parking.location.address}</p>
+                    <p className="text-xs text-gray-500">
+                      ✅ {parking.verifications}명이 확인했어요
+                    </p>
                   </div>
-                  <p className="text-sm text-gray-600 mb-2">{parking.location.address}</p>
-                  <p className="text-xs text-gray-500">
-                    ✅ {parking.verifications}명이 확인했어요
-                  </p>
+
+                  {/* 삭제 버튼 */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDelete(parking.id);
+                    }}
+                    className="mt-2 w-full bg-red-500 text-white py-2 rounded text-sm font-medium hover:bg-red-600"
+                  >
+                    삭제하기
+                  </button>
                 </div>
               ))}
             </div>
