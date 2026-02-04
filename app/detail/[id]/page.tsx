@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, setDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import { Parking } from '@/lib/types';
 import { useParams, useRouter } from 'next/navigation';
@@ -14,6 +14,8 @@ export default function DetailPage() {
   const [user] = useAuthState(auth);
   const [parking, setParking] = useState<Parking | null>(null);
   const [loading, setLoading] = useState(true);
+  const [hasVerified, setHasVerified] = useState(false);
+  const [verifying, setVerifying] = useState(false);
 
   useEffect(() => {
     const fetchParking = async () => {
@@ -37,6 +39,26 @@ export default function DetailPage() {
     fetchParking();
   }, [params.id, router]);
 
+  // 이미 검증했는지 확인
+  useEffect(() => {
+    const checkVerification = async () => {
+      if (!user || !parking) return;
+
+      try {
+        const verificationRef = doc(db, 'verifications', `${user.uid}_${parking.id}`);
+        const verificationSnap = await getDoc(verificationRef);
+        
+        if (verificationSnap.exists()) {
+          setHasVerified(true);
+        }
+      } catch (error) {
+        console.error('검증 확인 실패:', error);
+      }
+    };
+
+    checkVerification();
+  }, [user, parking]);
+
   const handleVerify = async () => {
     if (!user) {
       alert('로그인이 필요합니다');
@@ -45,21 +67,40 @@ export default function DetailPage() {
 
     if (!parking) return;
 
+    if (hasVerified) {
+      alert('이미 검증하셨습니다!');
+      return;
+    }
+
+    setVerifying(true);
+
     try {
+      // 검증 기록 저장
+      const verificationRef = doc(db, 'verifications', `${user.uid}_${parking.id}`);
+      await setDoc(verificationRef, {
+        userId: user.uid,
+        parkingId: parking.id,
+        timestamp: new Date(),
+      });
+
+      // 주차장 검증 수 증가
       const docRef = doc(db, 'parkings', parking.id);
       await updateDoc(docRef, {
         verifications: parking.verifications + 1,
       });
-      
+
       setParking({
         ...parking,
         verifications: parking.verifications + 1,
       });
-      
-      alert('확인되었습니다!');
+
+      setHasVerified(true);
+      alert('검증 완료! 감사합니다 😊');
     } catch (error) {
-      console.error('확인 실패:', error);
-      alert('확인 처리에 실패했습니다');
+      console.error('검증 실패:', error);
+      alert('검증 처리에 실패했습니다');
+    } finally {
+      setVerifying(false);
     }
   };
 
@@ -155,17 +196,26 @@ export default function DetailPage() {
         </div>
 
         {/* 액션 버튼 */}
-        <div className="p-6 space-y-3">
+        <div className="p-4 sm:p-6 space-y-3">
           <button
             onClick={handleVerify}
-            className="w-full bg-green-500 text-white py-4 rounded-lg font-bold text-lg shadow-lg active:bg-green-600"
+            disabled={verifying || hasVerified}
+            className={`w-full py-3 sm:py-4 rounded-lg font-bold text-base sm:text-lg shadow-lg ${
+              hasVerified
+                ? 'bg-gray-300 text-gray-600 cursor-not-allowed'
+                : 'bg-green-500 text-white active:bg-green-600'
+            }`}
           >
-            ✅ 여기 주차했어요 ({parking.verifications})
+            {hasVerified
+              ? '✅ 검증 완료 (이미 검증하셨어요)'
+              : verifying
+              ? '처리 중...'
+              : `✅ 여기 주차했어요 (${parking.verifications})`}
           </button>
 
           <button
             onClick={openInKakaoMap}
-            className="w-full bg-yellow-400 text-gray-800 py-4 rounded-lg font-bold text-lg shadow-lg active:bg-yellow-500"
+            className="w-full bg-yellow-400 text-gray-800 py-3 sm:py-4 rounded-lg font-bold text-base sm:text-lg shadow-lg active:bg-yellow-500"
           >
             🗺️ 카카오맵에서 보기
           </button>
@@ -173,9 +223,9 @@ export default function DetailPage() {
 
         {/* 추가 이미지 */}
         {parking.images.length > 1 && (
-          <div className="p-6">
+          <div className="p-4 sm:p-6">
             <p className="font-semibold mb-3">추가 사진</p>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-2 sm:gap-3">
               {parking.images.slice(1).map((img, idx) => (
                 <img
                   key={idx}
