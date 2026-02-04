@@ -31,7 +31,8 @@ function MapContent() {
   }, []);
 
   useEffect(() => {
-    if (!mapReady) return;
+    // 지도와 주차장 데이터 모두 준비되면 초기화
+    if (!mapReady || parkings.length === 0) return;
 
     const initMap = () => {
       const container = document.getElementById('map');
@@ -40,6 +41,10 @@ function MapContent() {
       const options = {
         center: new window.kakao.maps.LatLng(37.5665, 126.978),
         level: 5,
+        draggable: true,
+        scrollwheel: true,
+        disableDoubleClick: false,
+        disableDoubleClickZoom: false,
       };
 
       const map = new window.kakao.maps.Map(container, options);
@@ -151,7 +156,7 @@ function MapContent() {
       <div className="relative w-full h-screen">
         <div id="map" className="w-full h-full bg-gray-100" />
 
-        {!mapReady && (
+        {(!mapReady || parkings.length === 0) && (
           <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
             <div className="text-center">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
