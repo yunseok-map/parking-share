@@ -6,7 +6,7 @@ import { db, auth } from '@/lib/firebase';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { Parking } from '@/lib/types';
 
-const ADMIN_EMAILS = ['your-email@gmail.com']; // 여기에 본인 이메일 추가
+const ADMIN_EMAILS = ['yunseok1312@gmmail.com']; // 여기에 본인 이메일 추가
 
 export default function AdminPage() {
   const [user] = useAuthState(auth);
@@ -96,4 +96,5 @@ export default function AdminPage() {
       </div>
     </div>
   );
+
 }
