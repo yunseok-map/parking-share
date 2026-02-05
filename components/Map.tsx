@@ -81,20 +81,22 @@ function MapContent() {
         }
       }
 
-      // 주차장 마커 추가
+      // 주차장 마커 (승인된 것만)
       if (parkings.length > 0) {
-        parkings.forEach((parking) => {
-          const position = new window.kakao.maps.LatLng(
-            parking.location.lat,
-            parking.location.lng
-          );
+      parkings
+    .filter(p => (p.status || 'approved') === 'approved')
+    .forEach((parking) => {
+      const position = new window.kakao.maps.LatLng(
+        parking.location.lat,
+        parking.location.lng
+      );
 
-          const marker = new window.kakao.maps.Marker({
-            position: position,
-            title: parking.name,
-          });
+      const marker = new window.kakao.maps.Marker({
+        position: position,
+        title: parking.name,
+      });
 
-          marker.setMap(map);
+      marker.setMap(map);
 
           window.kakao.maps.event.addListener(marker, 'click', () => {
             router.push(`/detail/${parking.id}`);
