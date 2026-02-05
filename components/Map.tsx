@@ -6,6 +6,7 @@ import { collection, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Parking } from '@/lib/types';
 import { useRouter, useSearchParams } from 'next/navigation';
+import FavoritesPopup from '@/components/FavoritesPopup';
 
 function MapContent() {
   const router = useRouter();
@@ -13,6 +14,7 @@ function MapContent() {
   const [parkings, setParkings] = useState<Parking[]>([]);
   const [mapReady, setMapReady] = useState(false);
   const [dataLoaded, setDataLoaded] = useState(false);
+  const [showFavorites, setShowFavorites] = useState(false);
 
   // 주차장 데이터 로드
   useEffect(() => {
@@ -197,8 +199,20 @@ function MapContent() {
           >
             📍 내 위치
           </button>
+          <button
+            onClick={() => setShowFavorites(true)}
+            className="bg-yellow-500 text-white px-3 sm:px-4 py-2 rounded-lg shadow-lg hover:bg-yellow-600 text-xs sm:text-sm font-medium"
+          >
+            ⭐ 즐겨찾기
+          </button>
         </div>
       </div>
+
+      {/* 즐겨찾기 팝업 */}
+      <FavoritesPopup 
+        isOpen={showFavorites}
+        onClose={() => setShowFavorites(false)}
+      />
     </>
   );
 }
