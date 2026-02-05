@@ -7,6 +7,7 @@ import { Parking } from '@/lib/types';
 import { useRouter } from 'next/navigation';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import BottomNav from '@/components/BottomNav';
+import LoginButton from '@/components/LoginButton';
 
 type FilterType = 'all' | 'free' | 'paid';
 type CategoryType = 'all' | 'official' | 'hidden' | 'tip';
@@ -74,13 +75,13 @@ export default function ListPage() {
   };
 
   useEffect(() => {
-  let result = [...parkings];
+    let result = [...parkings];
 
-  // 승인된 것만 표시
-  result = result.filter(p => (p.status || 'approved') === 'approved');
+    // 승인된 것만 표시
+    result = result.filter(p => (p.status || 'approved') === 'approved');
 
-  // 검색
-  if (searchTerm.trim()) {
+    // 검색
+    if (searchTerm.trim()) {
       result = result.filter(
         (p) =>
           p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -171,11 +172,12 @@ export default function ListPage() {
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
       <div className="max-w-4xl mx-auto">
-        {/* 헤더 */}
         <div className="bg-white p-4 shadow sticky top-0 z-10">
-          <h1 className="text-2xl font-bold mb-4">주차장 목록</h1>
+          <div className="flex items-center justify-between mb-4">
+            <h1 className="text-2xl font-bold">주차장 목록</h1>
+            <LoginButton />
+          </div>
 
-          {/* 검색바 */}
           <div className="mb-4">
             <input
               type="text"
@@ -186,7 +188,6 @@ export default function ListPage() {
             />
           </div>
 
-          {/* 카테고리 필터 */}
           <div className="flex gap-2 overflow-x-auto mb-3 pb-2">
             <button
               onClick={() => setCategory('all')}
@@ -230,7 +231,6 @@ export default function ListPage() {
             </button>
           </div>
 
-          {/* 유형 필터 & 정렬 */}
           <div className="flex gap-2 overflow-x-auto">
             <button
               onClick={() => setFilter('all')}
@@ -312,7 +312,6 @@ export default function ListPage() {
           </p>
         </div>
 
-        {/* 주차장 목록 */}
         <div className="p-4 space-y-3">
           {filteredParkings.length === 0 ? (
             <div className="text-center py-20">
@@ -336,7 +335,6 @@ export default function ListPage() {
                 className="bg-white rounded-lg shadow hover:shadow-lg transition cursor-pointer overflow-hidden"
               >
                 <div className="flex">
-                  {/* 이미지 */}
                   <div className="w-32 h-32 sm:w-40 sm:h-40 flex-shrink-0 bg-gray-200 relative">
                     {parking.images.length > 0 ? (
                       <img
@@ -349,7 +347,6 @@ export default function ListPage() {
                         <span className="text-4xl">🅿️</span>
                       </div>
                     )}
-                    {/* 카테고리 뱃지 */}
                     {parking.category && parking.category !== 'official' && (
                       <div className="absolute top-2 left-2 bg-black bg-opacity-70 text-white text-xs px-2 py-1 rounded">
                         {getCategoryLabel(parking.category)}
@@ -357,7 +354,6 @@ export default function ListPage() {
                     )}
                   </div>
 
-                  {/* 정보 */}
                   <div className="flex-1 p-3 sm:p-4 flex flex-col justify-between">
                     <div>
                       <div className="flex items-start justify-between mb-2">
@@ -419,4 +415,3 @@ export default function ListPage() {
     </div>
   );
 }
-
