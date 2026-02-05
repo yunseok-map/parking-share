@@ -199,13 +199,16 @@ function MapContent() {
           >
             📍 내 위치
           </button>
-          <button
-            onClick={() => setShowFavorites(true)}
-            className="bg-yellow-500 text-white px-3 sm:px-4 py-2 rounded-lg shadow-lg hover:bg-yellow-600 text-xs sm:text-sm font-medium"
-          >
-            ⭐ 즐겨찾기
-          </button>
         </div>
+
+        {/* 즐겨찾기 FAB - 우측 하단 */}
+        <button
+          onClick={() => setShowFavorites(true)}
+          className="absolute bottom-24 right-4 bg-yellow-400 text-white w-14 h-14 rounded-full shadow-2xl hover:bg-yellow-500 active:scale-95 transition-transform z-30 flex items-center justify-center text-2xl"
+          aria-label="즐겨찾기 보기"
+        >
+          ⭐
+        </button>
       </div>
 
       {/* 즐겨찾기 팝업 */}
