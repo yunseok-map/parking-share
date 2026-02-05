@@ -1,15 +1,14 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { collection, addDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage, auth } from '@/lib/firebase';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { useRouter } from 'next/navigation';
+import BottomNav from '@/components/BottomNav';
 
-const ADMIN_EMAILS = ['yunseok1312@gmail.com'];
-
-export default function AdminAddParking() {
+export default function AddParking() {
   const [user] = useAuthState(auth);
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -29,19 +28,6 @@ export default function AdminAddParking() {
   });
   const [images, setImages] = useState<FileList | null>(null);
 
-  useEffect(() => {
-    if (!user) {
-      router.push('/');
-      return;
-    }
-
-    if (!ADMIN_EMAILS.includes(user.email || '')) {
-      alert('관리자 권한이 없습니다');
-      router.push('/');
-      return;
-    }
-  }, [user, router]);
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -58,6 +44,29 @@ export default function AdminAddParking() {
     if (!images || images.length === 0) {
       alert('주차장 사진을 최소 1장 이상 추가해주세요');
       return;
+    }
+
+    // 카테고리별 검증
+    if (formData.category === 'hidden') {
+      if (!formData.tip || formData.tip.trim().length < 10) {
+        alert('숨은꿀팁은 "꿀팁" 정보를 10자 이상 입력해주세요!\n예: "주말 오전 11시 이전만 무료, 단속 없음"');
+        return;
+      }
+      if (images.length < 2) {
+        alert('숨은꿀팁은 사진을 최소 2장 이상 추가해주세요!');
+        return;
+      }
+      if (!formData.description || formData.description.trim().length < 20) {
+        alert('숨은꿀팁은 상세 설명을 20자 이상 입력해주세요!');
+        return;
+      }
+    }
+
+    if (formData.category === 'tip') {
+      if (!formData.tip || formData.tip.trim().length < 10) {
+        alert('조건부무료는 "꿀팁"에 무료 조건을 명확히 입력해주세요!\n예: "영수증 제시 시 2시간 무료"');
+        return;
+      }
     }
 
     setLoading(true);
@@ -98,11 +107,11 @@ export default function AdminAddParking() {
         rating: 0,
         averageRating: 0,
         reviewCount: 0,
-        status: 'approved', // 관리자는 바로 승인
+        status: 'pending', // 일반 사용자는 승인 대기
       });
 
-      alert('등록 완료! (자동 승인됨)');
-      router.push('/admin');
+      alert('등록 완료! 관리자 승인 후 공개됩니다.');
+      router.push('/');
     } catch (error) {
       console.error(error);
       alert('등록 실패: ' + error);
@@ -129,30 +138,35 @@ export default function AdminAddParking() {
     }
   };
 
-  if (!user || !ADMIN_EMAILS.includes(user.email || '')) {
-    return null;
+  if (!user) {
+    return (
+      <div className="flex items-center justify-center h-screen px-4">
+        <div className="text-center">
+          <p className="text-lg sm:text-xl mb-4">로그인이 필요합니다</p>
+          <button
+            onClick={() => router.push('/')}
+            className="bg-blue-500 text-white px-6 py-2 rounded-lg text-sm sm:text-base"
+          >
+            홈으로 가기
+          </button>
+        </div>
+      </div>
+    );
   }
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
       <div className="max-w-2xl mx-auto p-4 sm:p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h1 className="text-2xl sm:text-3xl font-bold">🛠️ 관리자 주차장 등록</h1>
-          <button
-            onClick={() => router.push('/admin')}
-            className="text-sm bg-gray-500 text-white px-4 py-2 rounded"
-          >
-            관리자 페이지
-          </button>
-        </div>
-        <p className="text-sm text-gray-600 mb-4 bg-yellow-50 p-3 rounded">
-          ⚡ 관리자 등록은 자동 승인됩니다!
+        <h1 className="text-2xl sm:text-3xl font-bold mb-2">주차장 등록</h1>
+        <p className="text-sm text-gray-600 mb-4">
+          💡 숨은 꿀팁 주차장일수록 더 가치있어요!
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4 bg-white p-4 sm:p-6 rounded-lg shadow">
+          {/* 카테고리 */}
           <div>
             <label className="block mb-2 font-semibold text-sm sm:text-base">
-              카테고리 *
+              카테고리 * <span className="text-xs text-gray-500">(신중하게 선택해주세요)</span>
             </label>
             <div className="grid grid-cols-3 gap-2">
               <button
@@ -166,6 +180,7 @@ export default function AdminAddParking() {
               >
                 <div className="text-2xl mb-1">💎</div>
                 <div className="font-bold">숨은꿀팁</div>
+                <div className="text-xs text-gray-500">지도앱에 없는 정보</div>
               </button>
               <button
                 type="button"
@@ -178,6 +193,7 @@ export default function AdminAddParking() {
               >
                 <div className="text-2xl mb-1">💡</div>
                 <div className="font-bold">조건부무료</div>
+                <div className="text-xs text-gray-500">조건 충족 시 무료</div>
               </button>
               <button
                 type="button"
@@ -190,8 +206,27 @@ export default function AdminAddParking() {
               >
                 <div className="text-2xl mb-1">🅿️</div>
                 <div className="font-bold">공식주차장</div>
+                <div className="text-xs text-gray-500">일반 주차장</div>
               </button>
             </div>
+
+            {/* 카테고리별 안내 */}
+            {formData.category === 'hidden' && (
+              <div className="mt-2 p-3 bg-purple-50 rounded text-xs">
+                💎 <strong>숨은꿀팁 기준:</strong><br/>
+                • 카카오맵/네이버에 없는 정보<br/>
+                • 동네 주민만 아는 곳<br/>
+                • 사진 2장 이상 + 상세 팁 필수
+              </div>
+            )}
+            {formData.category === 'tip' && (
+              <div className="mt-2 p-3 bg-blue-50 rounded text-xs">
+                💡 <strong>조건부무료 기준:</strong><br/>
+                • 특정 조건 충족 시 무료<br/>
+                • 예: 영수증 제시, 시간대 제한<br/>
+                • 조건을 명확히 입력해주세요
+              </div>
+            )}
           </div>
 
           <div>
@@ -199,7 +234,7 @@ export default function AdminAddParking() {
             <input
               type="text"
               required
-              placeholder="예: 송도 센트럴파크 무료주차장"
+              placeholder="예: 강남역 공영주차장"
               className="w-full border border-gray-300 p-2 sm:p-3 rounded-lg text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
@@ -211,7 +246,7 @@ export default function AdminAddParking() {
             <input
               type="text"
               required
-              placeholder="예: 인천광역시 연수구 센트럴로 160"
+              placeholder="예: 서울시 강남구 역삼동 123-45"
               className="w-full border border-gray-300 p-2 sm:p-3 rounded-lg text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
               value={formData.address}
               onChange={(e) => setFormData({ ...formData, address: e.target.value })}
@@ -299,8 +334,9 @@ export default function AdminAddParking() {
             />
           </div>
 
+          {/* 꿀팁 정보 */}
           <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
-            <p className="font-bold text-sm mb-3">💡 꿀팁 정보</p>
+            <p className="font-bold text-sm mb-3">💡 꿀팁 정보 (선택)</p>
             
             <div className="space-y-3">
               <div>
@@ -342,7 +378,7 @@ export default function AdminAddParking() {
             <label className="block mb-2 font-semibold text-sm sm:text-base">설명</label>
             <textarea
               rows={3}
-              placeholder="예: 센트럴파크 인근 무료 주차장. 평일 오전에는 비어있음."
+              placeholder="예: 대형마트 뒤편 주차장. 야간에는 무료로 이용 가능합니다."
               className="w-full border border-gray-300 p-2 sm:p-3 rounded-lg text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
@@ -361,6 +397,9 @@ export default function AdminAddParking() {
               className="w-full border border-gray-300 p-2 rounded-lg text-xs sm:text-sm"
               onChange={(e) => setImages(e.target.files)}
             />
+            <p className="text-xs sm:text-sm text-gray-500 mt-1">
+              📸 주차장 입구, 내부, 주변 환경 사진을 추가해주세요
+            </p>
           </div>
 
           <button
@@ -368,10 +407,12 @@ export default function AdminAddParking() {
             disabled={loading}
             className="w-full bg-blue-500 text-white py-3 sm:py-4 rounded-lg font-bold text-base sm:text-lg disabled:bg-gray-400"
           >
-            {loading ? '등록 중...' : '등록하기 (자동 승인)'}
+            {loading ? '등록 중...' : '등록하기'}
           </button>
         </form>
       </div>
+
+      <BottomNav />
     </div>
   );
 }
