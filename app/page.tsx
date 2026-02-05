@@ -3,17 +3,16 @@
 import KakaoMap from '@/components/Map';
 import BottomNav from '@/components/BottomNav';
 import LoginButton from '@/components/LoginButton';
+import InstallPrompt from '@/components/InstallPrompt';
 
 export default function Home() {
   return (
     <div className="relative">
       <KakaoMap />
-      
-      {/* 로그인 버튼 (우측 상단) */}
       <div className="absolute top-4 right-4 z-30">
         <LoginButton />
       </div>
-
+      <InstallPrompt />
       <BottomNav />
     </div>
   );
