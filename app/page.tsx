@@ -3,11 +3,14 @@ import BottomNav from '@/components/BottomNav';
 import LoginButton from '@/components/LoginButton';
 
 export default function Home() {
-  return (
-    <main className="relative">
-      <div className="absolute top-0 left-0 right-0 z-20">
-        <LoginButton />
-      </div>
+return (
+  <div className="relative w-full h-screen">
+    <div id="map" className="w-full h-full bg-gray-100" />
+
+    {/* 로그인 버튼 (우측 상단) */}
+    <div className="absolute top-4 right-4 z-30">
+      <LoginButton />
+    </div>
       <KakaoMap />
       <BottomNav />
     </main>
