@@ -204,7 +204,7 @@ function MapContent() {
         {/* 즐겨찾기 FAB - 우측 하단 */}
         <button
           onClick={() => setShowFavorites(true)}
-          className="absolute bottom-24 right-4 bg-yellow-400 text-white w-14 h-14 rounded-full shadow-2xl hover:bg-yellow-500 active:scale-95 transition-transform z-[60] flex items-center justify-center text-2xl"
+          className="absolute bottom-20 sm:bottom-24 right-4 sm:right-6 bg-yellow-400 text-white w-14 h-14 sm:w-16 sm:h-16 rounded-full shadow-2xl hover:bg-yellow-500 hover:scale-110 active:scale-95 transition-all z-[60] flex items-center justify-center text-2xl sm:text-3xl"
           aria-label="즐겨찾기 보기"
         >
           ⭐
