@@ -7,6 +7,7 @@ import { Parking } from '@/lib/types';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import BottomNav from '@/components/BottomNav';
+import FavoriteButton from '@/components/FavoriteButton';
 
 interface Review {
   id: string;
@@ -406,12 +407,19 @@ export default function DetailPage() {
               : `✅ 여기 주차했어요 (${parking.verifications})`}
           </button>
 
-          <button
-            onClick={openInKakaoMap}
-            className="w-full bg-yellow-400 text-gray-800 py-3 sm:py-4 rounded-lg font-bold text-base sm:text-lg shadow-lg active:bg-yellow-500"
-          >
-            🗺️ 카카오맵에서 보기
-          </button>
+          <div className="flex gap-3">
+            <button
+              onClick={openInKakaoMap}
+              className="flex-1 bg-yellow-400 text-gray-800 py-3 sm:py-4 rounded-lg font-bold text-base sm:text-lg shadow-lg active:bg-yellow-500"
+            >
+              🗺️ 카카오맵
+            </button>
+            
+            <FavoriteButton 
+              parkingId={parking.id}
+              className="flex-1"
+            />
+          </div>
 
           <button
             onClick={handleReport}
