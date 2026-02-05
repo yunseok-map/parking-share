@@ -75,9 +75,9 @@ export default function FavoritesPopup({ isOpen, onClose }: FavoritesPopupProps)
 
   return (
     <>
-      {/* 백드롭 (배경 어둡게) */}
+      {/* 백드롭 (배경 반투명) */}
       <div 
-        className="fixed inset-0 bg-black bg-opacity-50 z-40"
+        className="fixed inset-0 bg-black bg-opacity-30 z-40 backdrop-blur-sm"
         onClick={onClose}
       />
 
