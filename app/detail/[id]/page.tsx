@@ -8,6 +8,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import BottomNav from '@/components/BottomNav';
 import FavoriteButton from '@/components/FavoriteButton';
+import ShareButton from '@/components/ShareButton';
 
 interface Review {
   id: string;
@@ -436,6 +437,13 @@ export default function DetailPage() {
               ? '처리 중...'
               : '🚫 허위 정보 신고하기'}
           </button>
+          {/* 공유 버튼 추가 */}
+          <ShareButton
+            parkingId={parking.id}
+            parkingName={parking.name}
+            parkingAddress={parking.location.address}
+            className="w-full"
+          />
         </div>
 
         {parking.images.length > 1 && (
