@@ -133,15 +133,23 @@ export default function AdminPage() {
         {/* 헤더 */}
         <div className="bg-white p-6 rounded-lg shadow mb-6">
           <div className="flex items-center justify-between mb-4">
-            <h1 className="text-3xl font-bold">🛠️ 관리자 페이지</h1>
-            <button
-              onClick={() => router.push('/')}
-              className="text-sm bg-gray-500 text-white px-4 py-2 rounded"
-            >
-              홈으로
-            </button>
-          </div>
-
+  <h1 className="text-3xl font-bold">🛠️ 관리자 페이지</h1>
+  <div className="flex gap-2">
+    <button
+      onClick={() => router.push('/admin/add')}
+      className="text-sm bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
+    >
+      ➕ 주차장 등록
+    </button>
+    <button
+      onClick={() => router.push('/')}
+      className="text-sm bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600"
+    >
+      홈으로
+    </button>
+  </div>
+</div>
+          
           {/* 필터 */}
           <div className="flex gap-2">
             <button
@@ -308,3 +316,4 @@ export default function AdminPage() {
     </div>
   );
 }
+
