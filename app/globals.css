@@ -12,11 +12,16 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* 다크모드 비활성화 */
+:root {
+  --background: #ffffff;
+  --foreground: #000000;
+}
+
+body {
+  background: #ffffff;
+  color: #000000;
+  font-family: Arial, Helvetica, sans-serif;
 }
 
 body {
