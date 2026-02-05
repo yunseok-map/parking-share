@@ -39,19 +39,32 @@ export default function MyPage() {
         const favoriteParkingIds = favorites.map(f => f.parkingId);
         
         if (favoriteParkingIds.length > 0) {
-          const parkingsQuery = query(
-            collection(db, 'parkings'),
-            where('__name__', 'in', favoriteParkingIds)
-          );
-          const parkingsSnapshot = await getDocs(parkingsQuery);
-          const favoriteParkingsData = parkingsSnapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data(),
-          })) as Parking[];
-          setFavoriteParkings(favoriteParkingsData);
+          // Firestore 'in' 쿼리는 최대 10개까지만 가능하므로 청크로 나눔
+          const chunks = [];
+          for (let i = 0; i < favoriteParkingIds.length; i += 10) {
+            chunks.push(favoriteParkingIds.slice(i, i + 10));
+          }
+
+          const allFavoriteParkings: Parking[] = [];
+          for (const chunk of chunks) {
+            const parkingsQuery = query(
+              collection(db, 'parkings'),
+              where('__name__', 'in', chunk)
+            );
+            const parkingsSnapshot = await getDocs(parkingsQuery);
+            const chunkParkings = parkingsSnapshot.docs.map(doc => ({
+              id: doc.id,
+              ...doc.data(),
+            })) as Parking[];
+            allFavoriteParkings.push(...chunkParkings);
+          }
+          setFavoriteParkings(allFavoriteParkings);
+        } else {
+          setFavoriteParkings([]);
         }
       } catch (error) {
         console.error('데이터 로드 실패:', error);
+        setFavoriteParkings([]);
       } finally {
         setLoading(false);
       }
