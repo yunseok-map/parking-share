@@ -6,12 +6,10 @@ import { db, auth } from '@/lib/firebase';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { useRouter } from 'next/navigation';
 import { Parking } from '@/lib/types';
+import LoginButton from '@/components/LoginButton';
 
-// 🔑 관리자 이메일 (여러 명 추가 가능)
 const ADMIN_EMAILS = [
-  'yunseok1312@gmail.com',  // 본인
-  'admin2@gmail.com',       // 추가 관리자 1
-  'admin3@gmail.com',       // 추가 관리자 2
+  'yunseok1312@gmail.com',
 ];
 
 export default function AdminPage() {
@@ -41,7 +39,6 @@ export default function AdminPage() {
           ...doc.data(),
         })) as Parking[];
         
-        // 최신순 정렬
         const sorted = data.sort((a, b) => {
           const dateA = a.createdAt?.toDate?.() || new Date(0);
           const dateB = b.createdAt?.toDate?.() || new Date(0);
@@ -112,7 +109,8 @@ export default function AdminPage() {
 
   const filteredParkings = parkings.filter(p => {
     if (filter === 'all') return true;
-    return p.status === filter;
+    const parkingStatus = p.status || 'approved';
+    return parkingStatus === filter;
   });
 
   if (!user || !ADMIN_EMAILS.includes(user.email || '')) {
@@ -130,27 +128,26 @@ export default function AdminPage() {
   return (
     <div className="min-h-screen bg-gray-50 p-4">
       <div className="max-w-6xl mx-auto">
-        {/* 헤더 */}
         <div className="bg-white p-6 rounded-lg shadow mb-6">
           <div className="flex items-center justify-between mb-4">
-  <h1 className="text-3xl font-bold">🛠️ 관리자 페이지</h1>
-  <div className="flex gap-2">
-    <button
-      onClick={() => router.push('/admin/add')}
-      className="text-sm bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
-    >
-      ➕ 주차장 등록
-    </button>
-    <button
-      onClick={() => router.push('/')}
-      className="text-sm bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600"
-    >
-      홈으로
-    </button>
-  </div>
-</div>
-          
-          {/* 필터 */}
+            <h1 className="text-3xl font-bold">🛠️ 관리자 페이지</h1>
+            <div className="flex gap-2 items-center">
+              <LoginButton />
+              <button
+                onClick={() => router.push('/admin/add')}
+                className="text-sm bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
+              >
+                ➕ 주차장 등록
+              </button>
+              <button
+                onClick={() => router.push('/')}
+                className="text-sm bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600"
+              >
+                홈으로
+              </button>
+            </div>
+          </div>
+
           <div className="flex gap-2">
             <button
               onClick={() => setFilter('all')}
@@ -166,7 +163,7 @@ export default function AdminPage() {
                 filter === 'pending' ? 'bg-yellow-500 text-white' : 'bg-gray-200'
               }`}
             >
-              대기 ({parkings.filter(p => p.status === 'pending').length})
+              대기 ({parkings.filter(p => (p.status || 'approved') === 'pending').length})
             </button>
             <button
               onClick={() => setFilter('approved')}
@@ -174,12 +171,11 @@ export default function AdminPage() {
                 filter === 'approved' ? 'bg-green-500 text-white' : 'bg-gray-200'
               }`}
             >
-              승인 ({parkings.filter(p => p.status === 'approved').length})
+              승인 ({parkings.filter(p => (p.status || 'approved') === 'approved').length})
             </button>
           </div>
         </div>
 
-        {/* 주차장 목록 */}
         <div className="space-y-4">
           {filteredParkings.length === 0 ? (
             <div className="text-center py-20 text-gray-500">
@@ -188,9 +184,7 @@ export default function AdminPage() {
           ) : (
             filteredParkings.map((parking) => (
               <div key={parking.id} className="bg-white p-6 rounded-lg shadow">
-                {/* 기본 정보 */}
                 <div className="flex gap-4 mb-4">
-                  {/* 이미지 */}
                   {parking.images.length > 0 && (
                     <img
                       src={parking.images[0]}
@@ -199,7 +193,6 @@ export default function AdminPage() {
                     />
                   )}
 
-                  {/* 상세 */}
                   <div className="flex-1">
                     <h3 className="text-xl font-bold mb-2">{parking.name}</h3>
                     <p className="text-sm text-gray-600 mb-1">📍 {parking.location.address}</p>
@@ -212,7 +205,6 @@ export default function AdminPage() {
                   </div>
                 </div>
 
-                {/* 상태 표시 */}
                 <div className="flex gap-2 mb-4">
                   <span className={`text-xs px-3 py-1 rounded-full ${
                     parking.category === 'hidden' ? 'bg-purple-100 text-purple-700' :
@@ -230,9 +222,9 @@ export default function AdminPage() {
                   </span>
 
                   <span className={`text-xs px-3 py-1 rounded-full ${
-                    parking.status === 'approved' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
+                    (parking.status || 'approved') === 'approved' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
                   }`}>
-                    {parking.status === 'approved' ? '✅ 승인됨' : '⏳ 대기중'}
+                    {(parking.status || 'approved') === 'approved' ? '✅ 승인됨' : '⏳ 대기중'}
                   </span>
 
                   <span className="text-xs px-3 py-1 rounded-full bg-gray-100 text-gray-700">
@@ -244,54 +236,50 @@ export default function AdminPage() {
                   </span>
                 </div>
 
-                {/* 관리 버튼들 */}
                 <div className="space-y-2">
-                  {/* 카테고리 변경 */}
                   <div className="flex gap-2">
                     <span className="text-sm font-semibold w-24">카테고리:</span>
                     <button
                       onClick={() => changeCategory(parking.id, 'hidden')}
-                      className="text-xs bg-purple-500 text-white px-3 py-1 rounded hover:bg-purple-600"
+                      className="text-xs bg-purple-500 text-white px-3 py-1 rounded hover:bg-purple-600 disabled:opacity-50"
                       disabled={parking.category === 'hidden'}
                     >
                       💎 숨은꿀팁
                     </button>
                     <button
                       onClick={() => changeCategory(parking.id, 'tip')}
-                      className="text-xs bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600"
+                      className="text-xs bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 disabled:opacity-50"
                       disabled={parking.category === 'tip'}
                     >
                       💡 조건부
                     </button>
                     <button
                       onClick={() => changeCategory(parking.id, 'official')}
-                      className="text-xs bg-gray-500 text-white px-3 py-1 rounded hover:bg-gray-600"
+                      className="text-xs bg-gray-500 text-white px-3 py-1 rounded hover:bg-gray-600 disabled:opacity-50"
                       disabled={parking.category === 'official'}
                     >
                       🅿️ 공식
                     </button>
                   </div>
 
-                  {/* 상태 변경 */}
                   <div className="flex gap-2">
                     <span className="text-sm font-semibold w-24">상태:</span>
                     <button
                       onClick={() => changeStatus(parking.id, 'approved')}
-                      className="text-xs bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600"
-                      disabled={parking.status === 'approved'}
+                      className="text-xs bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600 disabled:opacity-50"
+                      disabled={(parking.status || 'approved') === 'approved'}
                     >
                       ✅ 승인
                     </button>
                     <button
                       onClick={() => changeStatus(parking.id, 'pending')}
-                      className="text-xs bg-yellow-500 text-white px-3 py-1 rounded hover:bg-yellow-600"
-                      disabled={parking.status === 'pending'}
+                      className="text-xs bg-yellow-500 text-white px-3 py-1 rounded hover:bg-yellow-600 disabled:opacity-50"
+                      disabled={(parking.status || 'approved') === 'pending'}
                     >
                       ⏳ 대기
                     </button>
                   </div>
 
-                  {/* 기타 */}
                   <div className="flex gap-2">
                     <span className="text-sm font-semibold w-24">기타:</span>
                     <button
@@ -316,4 +304,3 @@ export default function AdminPage() {
     </div>
   );
 }
-
