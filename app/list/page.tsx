@@ -74,10 +74,13 @@ export default function ListPage() {
   };
 
   useEffect(() => {
-    let result = [...parkings];
+  let result = [...parkings];
 
-    // 검색
-    if (searchTerm.trim()) {
+  // 승인된 것만 표시
+  result = result.filter(p => (p.status || 'approved') === 'approved');
+
+  // 검색
+  if (searchTerm.trim()) {
       result = result.filter(
         (p) =>
           p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -416,3 +419,4 @@ export default function ListPage() {
     </div>
   );
 }
+
