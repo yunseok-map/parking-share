@@ -8,7 +8,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import BottomNav from '@/components/BottomNav';
 import FavoriteButton from '@/components/FavoriteButton';
-import ShareButton from '@/components/ShareButton';
+import ShareButton from '@/components/ShareButton'; //
 
 interface Review {
   id: string;
