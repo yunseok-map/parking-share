@@ -1,419 +1,296 @@
 'use client';
 
-import { useState } from 'react';
-import { collection, addDoc } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { db, storage, auth } from '@/lib/firebase';
+import { useEffect, useState } from 'react';
+import { collection, getDocs, doc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { db, auth } from '@/lib/firebase';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { useRouter } from 'next/navigation';
-import BottomNav from '@/components/BottomNav';
+import { Parking } from '@/lib/types';
 
-export default function AddParking() {
+const ADMIN_EMAILS = [
+  'yunseok1312@gmail.com',
+];
+
+export default function AdminPage() {
   const [user] = useAuthState(auth);
   const router = useRouter();
-  const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState({
-    name: '',
-    address: '',
-    lat: '',
-    lng: '',
-    type: 'free' as 'free' | 'paid',
-    category: 'official' as 'official' | 'hidden' | 'tip',
-    fee: '',
-    timeLimit: '',
-    description: '',
-    tip: '',
-    caution: '',
-    bestTime: '',
-  });
-  const [images, setImages] = useState<FileList | null>(null);
+  const [parkings, setParkings] = useState<Parking[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState<'all' | 'pending' | 'approved'>('all');
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
+  useEffect(() => {
     if (!user) {
-      alert('로그인이 필요합니다');
+      router.push('/');
       return;
     }
 
-    if (!formData.lat || !formData.lng) {
-      alert('위도와 경도를 입력해주세요');
+    if (!ADMIN_EMAILS.includes(user.email || '')) {
+      alert('관리자 권한이 없습니다');
+      router.push('/');
       return;
     }
 
-    if (!images || images.length === 0) {
-      alert('주차장 사진을 최소 1장 이상 추가해주세요');
-      return;
-    }
+    const fetchParkings = async () => {
+      try {
+        const querySnapshot = await getDocs(collection(db, 'parkings'));
+        const data = querySnapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        })) as Parking[];
+        
+        const sorted = data.sort((a, b) => {
+          const dateA = a.createdAt?.toDate?.() || new Date(0);
+          const dateB = b.createdAt?.toDate?.() || new Date(0);
+          return dateB.getTime() - dateA.getTime();
+        });
+        
+        setParkings(sorted);
+      } catch (error) {
+        console.error('데이터 로드 실패:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-    // 카테고리별 검증
-    if (formData.category === 'hidden') {
-      if (!formData.tip || formData.tip.trim().length < 10) {
-        alert('숨은꿀팁은 "꿀팁" 정보를 10자 이상 입력해주세요!\n예: "주말 오전 11시 이전만 무료, 단속 없음"');
-        return;
-      }
-      if (images.length < 2) {
-        alert('숨은꿀팁은 사진을 최소 2장 이상 추가해주세요!');
-        return;
-      }
-      if (!formData.description || formData.description.trim().length < 20) {
-        alert('숨은꿀팁은 상세 설명을 20자 이상 입력해주세요!');
-        return;
-      }
-    }
+    fetchParkings();
+  }, [user, router]);
 
-    if (formData.category === 'tip') {
-      if (!formData.tip || formData.tip.trim().length < 10) {
-        alert('조건부무료는 "꿀팁"에 무료 조건을 명확히 입력해주세요!\n예: "영수증 제시 시 2시간 무료"');
-        return;
-      }
-    }
-
-    setLoading(true);
+  const changeCategory = async (parkingId: string, newCategory: 'official' | 'hidden' | 'tip') => {
+    if (!confirm('카테고리를 변경하시겠습니까?')) return;
 
     try {
-      // 이미지 업로드 (수정: Promise.all 사용)
-      const imageUrls: string[] = [];
-      const uploadPromises = [];
-      
-      for (let i = 0; i < Math.min(images.length, 5); i++) {
-        const imageRef = ref(storage, `parkings/${Date.now()}_${i}`);
-        uploadPromises.push(
-          uploadBytes(imageRef, images[i]).then(() => getDownloadURL(imageRef))
-        );
-      }
-      
-      const urls = await Promise.all(uploadPromises);
-      imageUrls.push(...urls);
-
-      // Firestore에 저장
-      await addDoc(collection(db, 'parkings'), {
-        name: formData.name,
-        location: {
-          lat: parseFloat(formData.lat),
-          lng: parseFloat(formData.lng),
-          address: formData.address,
-        },
-        type: formData.type,
-        category: formData.category,
-        fee: formData.type === 'paid' ? parseFloat(formData.fee) : null,
-        timeLimit: formData.timeLimit || null,
-        description: formData.description,
-        tip: formData.tip || null,
-        caution: formData.caution || null,
-        bestTime: formData.bestTime || null,
-        images: imageUrls,
-        createdBy: user.uid,
-        createdAt: new Date(),
-        verifications: 0,
-        rating: 0,
-        averageRating: 0,
-        reviewCount: 0,
+      await updateDoc(doc(db, 'parkings', parkingId), {
+        category: newCategory,
       });
 
-      alert('등록 완료!');
-      router.push('/');
+      setParkings(parkings.map(p => 
+        p.id === parkingId ? { ...p, category: newCategory } : p
+      ));
+
+      alert('변경 완료!');
     } catch (error) {
-      console.error(error);
-      alert('등록 실패: ' + error);
-    } finally {
-      setLoading(false);
+      console.error('변경 실패:', error);
+      alert('변경에 실패했습니다');
     }
   };
 
-  const getCurrentLocation = () => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          setFormData({
-            ...formData,
-            lat: position.coords.latitude.toString(),
-            lng: position.coords.longitude.toString(),
-          });
-          alert('현재 위치를 불러왔습니다!');
-        },
-        () => {
-          alert('위치 정보를 가져올 수 없습니다');
-        }
-      );
+  const changeStatus = async (parkingId: string, newStatus: 'approved' | 'pending') => {
+    if (!confirm(`${newStatus === 'approved' ? '승인' : '대기'}하시겠습니까?`)) return;
+
+    try {
+      await updateDoc(doc(db, 'parkings', parkingId), {
+        status: newStatus,
+      });
+
+      setParkings(parkings.map(p => 
+        p.id === parkingId ? { ...p, status: newStatus } : p
+      ));
+
+      alert('변경 완료!');
+    } catch (error) {
+      console.error('변경 실패:', error);
+      alert('변경에 실패했습니다');
     }
   };
 
-  if (!user) {
+  const deleteParkingAdmin = async (parkingId: string) => {
+    if (!confirm('정말로 삭제하시겠습니까? 복구할 수 없습니다.')) return;
+
+    try {
+      await deleteDoc(doc(db, 'parkings', parkingId));
+      setParkings(parkings.filter(p => p.id !== parkingId));
+      alert('삭제 완료!');
+    } catch (error) {
+      console.error('삭제 실패:', error);
+      alert('삭제에 실패했습니다');
+    }
+  };
+
+  const filteredParkings = parkings.filter(p => {
+    if (filter === 'all') return true;
+    const parkingStatus = p.status || 'approved';
+    return parkingStatus === filter;
+  });
+
+  if (!user || !ADMIN_EMAILS.includes(user.email || '')) {
+    return null;
+  }
+
+  if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen px-4">
-        <div className="text-center">
-          <p className="text-lg sm:text-xl mb-4">로그인이 필요합니다</p>
-          <button
-            onClick={() => router.push('/')}
-            className="bg-blue-500 text-white px-6 py-2 rounded-lg text-sm sm:text-base"
-          >
-            홈으로 가기
-          </button>
-        </div>
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-lg">로딩 중...</div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-20">
-      <div className="max-w-2xl mx-auto p-4 sm:p-6">
-        <h1 className="text-2xl sm:text-3xl font-bold mb-2">주차장 등록</h1>
-        <p className="text-sm text-gray-600 mb-4">
-          💡 숨은 꿀팁 주차장일수록 더 가치있어요!
-        </p>
-
-        <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4 bg-white p-4 sm:p-6 rounded-lg shadow">
-          {/* 카테고리 */}
-          <div>
-            <label className="block mb-2 font-semibold text-sm sm:text-base">
-              카테고리 * <span className="text-xs text-gray-500">(신중하게 선택해주세요)</span>
-            </label>
-            <div className="grid grid-cols-3 gap-2">
-              <button
-                type="button"
-                onClick={() => setFormData({ ...formData, category: 'hidden' })}
-                className={`p-3 rounded-lg border-2 text-sm ${
-                  formData.category === 'hidden'
-                    ? 'border-purple-500 bg-purple-50'
-                    : 'border-gray-300'
-                }`}
-              >
-                <div className="text-2xl mb-1">💎</div>
-                <div className="font-bold">숨은꿀팁</div>
-                <div className="text-xs text-gray-500">지도앱에 없는 정보</div>
-              </button>
-              <button
-                type="button"
-                onClick={() => setFormData({ ...formData, category: 'tip' })}
-                className={`p-3 rounded-lg border-2 text-sm ${
-                  formData.category === 'tip'
-                    ? 'border-purple-500 bg-purple-50'
-                    : 'border-gray-300'
-                }`}
-              >
-                <div className="text-2xl mb-1">💡</div>
-                <div className="font-bold">조건부무료</div>
-                <div className="text-xs text-gray-500">조건 충족 시 무료</div>
-              </button>
-              <button
-                type="button"
-                onClick={() => setFormData({ ...formData, category: 'official' })}
-                className={`p-3 rounded-lg border-2 text-sm ${
-                  formData.category === 'official'
-                    ? 'border-purple-500 bg-purple-50'
-                    : 'border-gray-300'
-                }`}
-              >
-                <div className="text-2xl mb-1">🅿️</div>
-                <div className="font-bold">공식주차장</div>
-                <div className="text-xs text-gray-500">일반 주차장</div>
-              </button>
-            </div>
-
-            {/* 카테고리별 안내 */}
-            {formData.category === 'hidden' && (
-              <div className="mt-2 p-3 bg-purple-50 rounded text-xs">
-                💎 <strong>숨은꿀팁 기준:</strong><br/>
-                • 카카오맵/네이버에 없는 정보<br/>
-                • 동네 주민만 아는 곳<br/>
-                • 사진 2장 이상 + 상세 팁 필수
-              </div>
-            )}
-            {formData.category === 'tip' && (
-              <div className="mt-2 p-3 bg-blue-50 rounded text-xs">
-                💡 <strong>조건부무료 기준:</strong><br/>
-                • 특정 조건 충족 시 무료<br/>
-                • 예: 영수증 제시, 시간대 제한<br/>
-                • 조건을 명확히 입력해주세요
-              </div>
-            )}
-          </div>
-
-          <div>
-            <label className="block mb-2 font-semibold text-sm sm:text-base">주차장 이름 *</label>
-            <input
-              type="text"
-              required
-              placeholder="예: 강남역 공영주차장"
-              className="w-full border border-gray-300 p-2 sm:p-3 rounded-lg text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-            />
-          </div>
-
-          <div>
-            <label className="block mb-2 font-semibold text-sm sm:text-base">주소 *</label>
-            <input
-              type="text"
-              required
-              placeholder="예: 서울시 강남구 역삼동 123-45"
-              className="w-full border border-gray-300 p-2 sm:p-3 rounded-lg text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
-              value={formData.address}
-              onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-            />
-          </div>
-
-          <div>
-            <label className="block mb-2 font-semibold text-sm sm:text-base">위치 정보 *</label>
+    <div className="min-h-screen bg-gray-50 p-4">
+      <div className="max-w-6xl mx-auto">
+        <div className="bg-white p-6 rounded-lg shadow mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <h1 className="text-3xl font-bold">🛠️ 관리자 페이지</h1>
             <button
-              type="button"
-              onClick={getCurrentLocation}
-              className="mb-2 bg-green-500 text-white px-3 sm:px-4 py-2 rounded-lg w-full text-sm sm:text-base font-medium"
+              onClick={() => router.push('/')}
+              className="text-sm bg-gray-500 text-white px-4 py-2 rounded"
             >
-              📍 현재 위치 가져오기
+              홈으로
             </button>
-            <div className="grid grid-cols-2 gap-2 sm:gap-4">
-              <input
-                type="number"
-                step="any"
-                required
-                placeholder="위도"
-                className="w-full border border-gray-300 p-2 sm:p-3 rounded-lg text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
-                value={formData.lat}
-                onChange={(e) => setFormData({ ...formData, lat: e.target.value })}
-              />
-              <input
-                type="number"
-                step="any"
-                required
-                placeholder="경도"
-                className="w-full border border-gray-300 p-2 sm:p-3 rounded-lg text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
-                value={formData.lng}
-                onChange={(e) => setFormData({ ...formData, lng: e.target.value })}
-              />
-            </div>
           </div>
 
-          <div>
-            <label className="block mb-2 font-semibold text-sm sm:text-base">유형 *</label>
-            <div className="flex gap-3 sm:gap-4">
-              <label className="flex items-center text-sm sm:text-base">
-                <input
-                  type="radio"
-                  value="free"
-                  checked={formData.type === 'free'}
-                  onChange={(e) => setFormData({ ...formData, type: e.target.value as 'free' | 'paid' })}
-                  className="mr-2 w-4 h-4"
-                />
-                무료
-              </label>
-              <label className="flex items-center text-sm sm:text-base">
-                <input
-                  type="radio"
-                  value="paid"
-                  checked={formData.type === 'paid'}
-                  onChange={(e) => setFormData({ ...formData, type: e.target.value as 'free' | 'paid' })}
-                  className="mr-2 w-4 h-4"
-                />
-                유료
-              </label>
-            </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setFilter('all')}
+              className={`px-4 py-2 rounded ${
+                filter === 'all' ? 'bg-blue-500 text-white' : 'bg-gray-200'
+              }`}
+            >
+              전체 ({parkings.length})
+            </button>
+            <button
+              onClick={() => setFilter('pending')}
+              className={`px-4 py-2 rounded ${
+                filter === 'pending' ? 'bg-yellow-500 text-white' : 'bg-gray-200'
+              }`}
+            >
+              대기 ({parkings.filter(p => (p.status || 'approved') === 'pending').length})
+            </button>
+            <button
+              onClick={() => setFilter('approved')}
+              className={`px-4 py-2 rounded ${
+                filter === 'approved' ? 'bg-green-500 text-white' : 'bg-gray-200'
+              }`}
+            >
+              승인 ({parkings.filter(p => (p.status || 'approved') === 'approved').length})
+            </button>
           </div>
+        </div>
 
-          {formData.type === 'paid' && (
-            <div>
-              <label className="block mb-2 font-semibold text-sm sm:text-base">요금 (원/시간)</label>
-              <input
-                type="number"
-                placeholder="예: 2000"
-                className="w-full border border-gray-300 p-2 sm:p-3 rounded-lg text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
-                value={formData.fee}
-                onChange={(e) => setFormData({ ...formData, fee: e.target.value })}
-              />
+        <div className="space-y-4">
+          {filteredParkings.length === 0 ? (
+            <div className="text-center py-20 text-gray-500">
+              해당하는 주차장이 없습니다
             </div>
+          ) : (
+            filteredParkings.map((parking) => (
+              <div key={parking.id} className="bg-white p-6 rounded-lg shadow">
+                <div className="flex gap-4 mb-4">
+                  {parking.images.length > 0 && (
+                    <img
+                      src={parking.images[0]}
+                      alt={parking.name}
+                      className="w-32 h-32 object-cover rounded"
+                    />
+                  )}
+
+                  <div className="flex-1">
+                    <h3 className="text-xl font-bold mb-2">{parking.name}</h3>
+                    <p className="text-sm text-gray-600 mb-1">📍 {parking.location.address}</p>
+                    {parking.tip && (
+                      <p className="text-sm text-purple-600 mb-1">💡 {parking.tip}</p>
+                    )}
+                    {parking.description && (
+                      <p className="text-sm text-gray-500 line-clamp-2">{parking.description}</p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex gap-2 mb-4">
+                  <span className={`text-xs px-3 py-1 rounded-full ${
+                    parking.category === 'hidden' ? 'bg-purple-100 text-purple-700' :
+                    parking.category === 'tip' ? 'bg-blue-100 text-blue-700' : 
+                    'bg-gray-100 text-gray-700'
+                  }`}>
+                    {parking.category === 'hidden' ? '💎 숨은꿀팁' :
+                     parking.category === 'tip' ? '💡 조건부' : '🅿️ 공식'}
+                  </span>
+
+                  <span className={`text-xs px-3 py-1 rounded-full ${
+                    parking.type === 'free' ? 'bg-blue-100 text-blue-700' : 'bg-red-100 text-red-700'
+                  }`}>
+                    {parking.type === 'free' ? '무료' : '유료'}
+                  </span>
+
+                  <span className={`text-xs px-3 py-1 rounded-full ${
+                    (parking.status || 'approved') === 'approved' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
+                  }`}>
+                    {(parking.status || 'approved') === 'approved' ? '✅ 승인됨' : '⏳ 대기중'}
+                  </span>
+
+                  <span className="text-xs px-3 py-1 rounded-full bg-gray-100 text-gray-700">
+                    검증: {parking.verifications}명
+                  </span>
+
+                  <span className="text-xs text-gray-500">
+                    {parking.createdAt?.toDate?.()?.toLocaleDateString() || '날짜 없음'}
+                  </span>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex gap-2">
+                    <span className="text-sm font-semibold w-24">카테고리:</span>
+                    <button
+                      onClick={() => changeCategory(parking.id, 'hidden')}
+                      className="text-xs bg-purple-500 text-white px-3 py-1 rounded hover:bg-purple-600 disabled:opacity-50"
+                      disabled={parking.category === 'hidden'}
+                    >
+                      💎 숨은꿀팁
+                    </button>
+                    <button
+                      onClick={() => changeCategory(parking.id, 'tip')}
+                      className="text-xs bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 disabled:opacity-50"
+                      disabled={parking.category === 'tip'}
+                    >
+                      💡 조건부
+                    </button>
+                    <button
+                      onClick={() => changeCategory(parking.id, 'official')}
+                      className="text-xs bg-gray-500 text-white px-3 py-1 rounded hover:bg-gray-600 disabled:opacity-50"
+                      disabled={parking.category === 'official'}
+                    >
+                      🅿️ 공식
+                    </button>
+                  </div>
+
+                  <div className="flex gap-2">
+                    <span className="text-sm font-semibold w-24">상태:</span>
+                    <button
+                      onClick={() => changeStatus(parking.id, 'approved')}
+                      className="text-xs bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600 disabled:opacity-50"
+                      disabled={(parking.status || 'approved') === 'approved'}
+                    >
+                      ✅ 승인
+                    </button>
+                    <button
+                      onClick={() => changeStatus(parking.id, 'pending')}
+                      className="text-xs bg-yellow-500 text-white px-3 py-1 rounded hover:bg-yellow-600 disabled:opacity-50"
+                      disabled={(parking.status || 'approved') === 'pending'}
+                    >
+                      ⏳ 대기
+                    </button>
+                  </div>
+
+                  <div className="flex gap-2">
+                    <span className="text-sm font-semibold w-24">기타:</span>
+                    <button
+                      onClick={() => router.push(`/detail/${parking.id}`)}
+                      className="text-xs bg-indigo-500 text-white px-3 py-1 rounded hover:bg-indigo-600"
+                    >
+                      👁️ 상세보기
+                    </button>
+                    <button
+                      onClick={() => deleteParkingAdmin(parking.id)}
+                      className="text-xs bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600"
+                    >
+                      🗑️ 삭제
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))
           )}
-
-          <div>
-            <label className="block mb-2 font-semibold text-sm sm:text-base">시간 제한</label>
-            <input
-              type="text"
-              placeholder="예: 2시간, 없음"
-              className="w-full border border-gray-300 p-2 sm:p-3 rounded-lg text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
-              value={formData.timeLimit}
-              onChange={(e) => setFormData({ ...formData, timeLimit: e.target.value })}
-            />
-          </div>
-
-          {/* 꿀팁 정보 */}
-          <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
-            <p className="font-bold text-sm mb-3">💡 꿀팁 정보 (선택)</p>
-            
-            <div className="space-y-3">
-              <div>
-                <label className="block mb-1 text-xs font-medium">꿀팁</label>
-                <input
-                  type="text"
-                  placeholder="예: 주말 오전 11시 이전만 무료"
-                  className="w-full border border-gray-300 p-2 rounded text-sm"
-                  value={formData.tip}
-                  onChange={(e) => setFormData({ ...formData, tip: e.target.value })}
-                />
-              </div>
-
-              <div>
-                <label className="block mb-1 text-xs font-medium">주의사항</label>
-                <input
-                  type="text"
-                  placeholder="예: 야간 단속 있음"
-                  className="w-full border border-gray-300 p-2 rounded text-sm"
-                  value={formData.caution}
-                  onChange={(e) => setFormData({ ...formData, caution: e.target.value })}
-                />
-              </div>
-
-              <div>
-                <label className="block mb-1 text-xs font-medium">최적 시간</label>
-                <input
-                  type="text"
-                  placeholder="예: 평일 오후 2-5시"
-                  className="w-full border border-gray-300 p-2 rounded text-sm"
-                  value={formData.bestTime}
-                  onChange={(e) => setFormData({ ...formData, bestTime: e.target.value })}
-                />
-              </div>
-            </div>
-          </div>
-
-          <div>
-            <label className="block mb-2 font-semibold text-sm sm:text-base">설명</label>
-            <textarea
-              rows={3}
-              placeholder="예: 대형마트 뒤편 주차장. 야간에는 무료로 이용 가능합니다."
-              className="w-full border border-gray-300 p-2 sm:p-3 rounded-lg text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
-              value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-            />
-          </div>
-
-          <div>
-            <label className="block mb-2 font-semibold text-sm sm:text-base">
-              사진 * (최소 1장, 최대 5장)
-            </label>
-            <input
-              type="file"
-              multiple
-              accept="image/*"
-              required
-              className="w-full border border-gray-300 p-2 rounded-lg text-xs sm:text-sm"
-              onChange={(e) => setImages(e.target.files)}
-            />
-            <p className="text-xs sm:text-sm text-gray-500 mt-1">
-              📸 주차장 입구, 내부, 주변 환경 사진을 추가해주세요
-            </p>
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-blue-500 text-white py-3 sm:py-4 rounded-lg font-bold text-base sm:text-lg disabled:bg-gray-400"
-          >
-            {loading ? '등록 중...' : '등록하기'}
-          </button>
-        </form>
+        </div>
       </div>
-
-      <BottomNav />
     </div>
   );
 }
