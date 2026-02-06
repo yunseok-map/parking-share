@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import BottomNav from '@/components/BottomNav';
 import LoginButton from '@/components/LoginButton';
+import LoadingSkeleton from '@/components/LoadingSkeleton';
 
 type FilterType = 'all' | 'free' | 'paid';
 type CategoryType = 'all' | 'official' | 'hidden' | 'tip';
@@ -76,11 +77,8 @@ export default function ListPage() {
 
   useEffect(() => {
     let result = [...parkings];
-
-    // 승인된 것만 표시
     result = result.filter(p => (p.status || 'approved') === 'approved');
 
-    // 검색
     if (searchTerm.trim()) {
       result = result.filter(
         (p) =>
@@ -90,19 +88,16 @@ export default function ListPage() {
       );
     }
 
-    // 유형 필터
     if (filter === 'free') {
       result = result.filter((p) => p.type === 'free');
     } else if (filter === 'paid') {
       result = result.filter((p) => p.type === 'paid');
     }
 
-    // 카테고리 필터
     if (category !== 'all') {
       result = result.filter((p) => p.category === category);
     }
 
-    // 정렬
     if (sort === 'distance' && userLocation) {
       result.sort((a, b) => {
         const distA = calculateDistance(
@@ -160,14 +155,6 @@ export default function ListPage() {
     };
     return labels[cat as keyof typeof labels] || '';
   };
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="text-lg">로딩 중...</div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
@@ -307,108 +294,115 @@ export default function ListPage() {
             </button>
           </div>
 
-          <p className="text-sm text-gray-600 mt-3">
-            총 {filteredParkings.length}개의 주차장
-          </p>
+          {!loading && (
+            <p className="text-sm text-gray-600 mt-3">
+              총 {filteredParkings.length}개의 주차장
+            </p>
+          )}
         </div>
 
-        <div className="p-4 space-y-3">
-          {filteredParkings.length === 0 ? (
-            <div className="text-center py-20">
-              <p className="text-gray-500 mb-2">
-                {searchTerm ? '검색 결과가 없습니다' : '해당하는 주차장이 없습니다'}
-              </p>
-              {searchTerm && (
-                <button
-                  onClick={() => setSearchTerm('')}
-                  className="text-blue-500 text-sm"
+        {loading ? (
+          <LoadingSkeleton />
+        ) : (
+          <div className="p-4 space-y-3">
+            {filteredParkings.length === 0 ? (
+              <div className="text-center py-20">
+                <p className="text-6xl mb-4">🔍</p>
+                <p className="text-gray-500 mb-2">
+                  {searchTerm ? '검색 결과가 없습니다' : '해당하는 주차장이 없습니다'}
+                </p>
+                {searchTerm && (
+                  <button
+                    onClick={() => setSearchTerm('')}
+                    className="text-blue-500 text-sm hover:underline"
+                  >
+                    검색 초기화
+                  </button>
+                )}
+              </div>
+            ) : (
+              filteredParkings.map((parking) => (
+                <div
+                  key={parking.id}
+                  onClick={() => router.push(`/detail/${parking.id}`)}
+                  className="bg-white rounded-lg shadow hover:shadow-lg transition cursor-pointer overflow-hidden"
                 >
-                  검색 초기화
-                </button>
-              )}
-            </div>
-          ) : (
-            filteredParkings.map((parking) => (
-              <div
-                key={parking.id}
-                onClick={() => router.push(`/detail/${parking.id}`)}
-                className="bg-white rounded-lg shadow hover:shadow-lg transition cursor-pointer overflow-hidden"
-              >
-                <div className="flex">
-                  <div className="w-32 h-32 sm:w-40 sm:h-40 flex-shrink-0 bg-gray-200 relative">
-                    {parking.images.length > 0 ? (
-                      <img
-                        src={parking.images[0]}
-                        alt={parking.name}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-gray-400">
-                        <span className="text-4xl">🅿️</span>
-                      </div>
-                    )}
-                    {parking.category && parking.category !== 'official' && (
-                      <div className="absolute top-2 left-2 bg-black bg-opacity-70 text-white text-xs px-2 py-1 rounded">
-                        {getCategoryLabel(parking.category)}
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="flex-1 p-3 sm:p-4 flex flex-col justify-between">
-                    <div>
-                      <div className="flex items-start justify-between mb-2">
-                        <h3 className="font-bold text-base sm:text-lg line-clamp-1">
-                          {parking.name}
-                        </h3>
-                        <span
-                          className={`px-2 py-1 rounded text-xs font-medium whitespace-nowrap ml-2 ${
-                            parking.type === 'free'
-                              ? 'bg-blue-100 text-blue-700'
-                              : 'bg-red-100 text-red-700'
-                          }`}
-                        >
-                          {parking.type === 'free' ? '무료' : '유료'}
-                        </span>
-                      </div>
-
-                      <p className="text-xs sm:text-sm text-gray-600 line-clamp-1 mb-2">
-                        📍 {parking.location.address}
-                      </p>
-
-                      {parking.tip && (
-                        <p className="text-xs text-purple-600 mb-1 line-clamp-1">
-                          💡 {parking.tip}
-                        </p>
+                  <div className="flex">
+                    <div className="w-32 h-32 sm:w-40 sm:h-40 flex-shrink-0 bg-gray-200 relative">
+                      {parking.images.length > 0 ? (
+                        <img
+                          src={parking.images[0]}
+                          alt={parking.name}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-gray-400">
+                          <span className="text-4xl">🅿️</span>
+                        </div>
                       )}
-
-                      {parking.type === 'paid' && parking.fee && (
-                        <p className="text-sm font-semibold text-gray-800 mb-1">
-                          💰 {parking.fee.toLocaleString()}원/시간
-                        </p>
-                      )}
-
-                      {parking.timeLimit && (
-                        <p className="text-xs text-gray-500 mb-1">
-                          ⏱️ {parking.timeLimit}
-                        </p>
+                      {parking.category && parking.category !== 'official' && (
+                        <div className="absolute top-2 left-2 bg-black bg-opacity-70 text-white text-xs px-2 py-1 rounded">
+                          {getCategoryLabel(parking.category)}
+                        </div>
                       )}
                     </div>
 
-                    <div className="flex items-center justify-between mt-2 pt-2 border-t border-gray-100">
-                      <div className="flex items-center gap-3 text-xs text-gray-500">
-                        <span>✅ {parking.verifications}명</span>
-                        {parking.averageRating && (
-                          <span>⭐ {parking.averageRating.toFixed(1)}</span>
+                    <div className="flex-1 p-3 sm:p-4 flex flex-col justify-between">
+                      <div>
+                        <div className="flex items-start justify-between mb-2">
+                          <h3 className="font-bold text-base sm:text-lg line-clamp-1">
+                            {parking.name}
+                          </h3>
+                          <span
+                            className={`px-2 py-1 rounded text-xs font-medium whitespace-nowrap ml-2 ${
+                              parking.type === 'free'
+                                ? 'bg-blue-100 text-blue-700'
+                                : 'bg-red-100 text-red-700'
+                            }`}
+                          >
+                            {parking.type === 'free' ? '무료' : '유료'}
+                          </span>
+                        </div>
+
+                        <p className="text-xs sm:text-sm text-gray-600 line-clamp-1 mb-2">
+                          📍 {parking.location.address}
+                        </p>
+
+                        {parking.tip && (
+                          <p className="text-xs text-purple-600 mb-1 line-clamp-1">
+                            💡 {parking.tip}
+                          </p>
                         )}
-                        <span>📍 {getDistance(parking)}</span>
+
+                        {parking.type === 'paid' && parking.fee && (
+                          <p className="text-sm font-semibold text-gray-800 mb-1">
+                            💰 {parking.fee.toLocaleString()}원/시간
+                          </p>
+                        )}
+
+                        {parking.timeLimit && (
+                          <p className="text-xs text-gray-500 mb-1">
+                            ⏱️ {parking.timeLimit}
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="flex items-center justify-between mt-2 pt-2 border-t border-gray-100">
+                        <div className="flex items-center gap-3 text-xs text-gray-500">
+                          <span>✅ {parking.verifications}명</span>
+                          {parking.averageRating && (
+                            <span>⭐ {parking.averageRating.toFixed(1)}</span>
+                          )}
+                          <span>📍 {getDistance(parking)}</span>
+                        </div>
                       </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            ))
-          )}
-        </div>
+              ))
+            )}
+          </div>
+        )}
       </div>
 
       <BottomNav />
