@@ -75,10 +75,11 @@ export default function FavoritesPopup({ isOpen, onClose }: FavoritesPopupProps)
 
   return (
     <>
-      {/* 백드롭 (거의 투명) */}
+      {/* 배경 완전 투명 */}
       <div 
-        className="fixed inset-0 bg-black bg-opacity-10 z-40 backdrop-blur-sm"
+        className="fixed inset-0 z-40 bg-transparent"
         onClick={onClose}
+        aria-hidden="true"
       />
 
       {/* 팝업 */}
